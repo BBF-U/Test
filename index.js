@@ -7,14 +7,13 @@ app.use(express.json());
 app.use(express.static("public"));
 
 /* ================================
-   🧹 ОЧИСТКА ТЕКСТУ
+   🧹 ОЧИСТКА
 ================================= */
 function cleanText(t) {
   return t
     .replace(/\(https?:\/\/[^\s]+\)/g, "")
     .replace(/https?:\/\/[^\s]+/g, "")
     .replace(/[\p{Emoji}]/gu, "")
-    .replace(/[_🤝✅🚀👉📢📣]+/g, "")
     .replace(/\n{2,}/g, "\n")
     .trim();
 }
@@ -26,44 +25,44 @@ const styles = {
   telegram: `
 Зроби щільне резюме тексту.
 
-Пиши від першої особи, як для Telegram.
+Стиль: особистий Telegram.
 
 ФОРМАТ:
 - 2–3 абзаци
-- тільки ключова суть
+- від першої особи
 
 ПРАВИЛА:
+- тільки суть
 - без води
-- коротко
-- збережи факти, цифри, висновки
-- не вигадуй
+- без списків
+- без символів "-", "*"
 `.trim(),
 
   neutral: `
 Зроби щільне резюме тексту.
 
 ФОРМАТ:
-- список пунктів
-- 5–10 пунктів
+- 5–8 коротких речень
+- одним блоком
 
 ПРАВИЛА:
 - тільки факти
+- без списків
+- без "-", "*"
 - без вступів
-- без пояснень
-- без води
 `.trim(),
 
   journal: `
-Зроби щільне резюме тексту у стилі новини.
+Зроби резюме у стилі новини.
 
 ФОРМАТ:
 - 1 короткий лід
-- далі факти
+- 1–2 абзаци
 
 ПРАВИЛА:
-- максимально стисло
-- тільки важливе
-- без зайвих слів
+- чітко і по фактах
+- без списків
+- без "-", "*"
 `.trim()
 };
 
@@ -71,49 +70,37 @@ const styles = {
    📏 ОБСЯГ
 ================================= */
 const sizes = {
-  short:  { instruction: "Дуже коротко: 2–4 речення.", maxTokens: 200 },
-  medium: { instruction: "Середній обсяг: 5–8 речень.", maxTokens: 450 },
-  long:   { instruction: "Детально, але без води: 8–14 речень.", maxTokens: 800 }
+  short:  { instruction: "2–4 речення.", maxTokens: 200 },
+  medium: { instruction: "5–8 речень.", maxTokens: 400 },
+  long:   { instruction: "8–12 речень.", maxTokens: 700 }
 };
 
 /* ================================
    🤖 GEMINI
 ================================= */
-async function callGemini(prompt, maxTokens = 450, retries = 3) {
-  for (let i = 0; i <= retries; i++) {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            maxOutputTokens: maxTokens,
-            temperature: 0.4,
-            topP: 0.9
-          }
-        })
-      }
-    );
-
-    const data = await response.json();
-
-    if (response.status === 429 || response.status === 503) {
-      if (i < retries) {
-        await new Promise(r => setTimeout(r, (i + 1) * 3000));
-        continue;
-      }
-      throw new Error("RATE_LIMIT");
+async function callGemini(prompt, maxTokens = 400) {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          maxOutputTokens: maxTokens,
+          temperature: 0.4
+        }
+      })
     }
+  );
 
-    if (!response.ok) {
-      const msg = data?.error?.message || "";
-      throw new Error(msg || "API error");
-    }
+  const data = await response.json();
 
-    return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+  if (!response.ok) {
+    throw new Error(data?.error?.message || "API error");
   }
+
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
 }
 
 /* ================================
@@ -122,8 +109,8 @@ async function callGemini(prompt, maxTokens = 450, retries = 3) {
 app.post("/api/test", async (req, res) => {
   let { text, mode, size } = req.body;
 
-  if (!text || text.trim().length < 30) {
-    return res.json({ result: "⚠️ Текст занадто короткий." });
+  if (!text || text.length < 30) {
+    return res.json({ result: "⚠️ Текст занадто короткий" });
   }
 
   text = cleanText(text);
@@ -139,25 +126,18 @@ ${style}
 ${instruction}
 
 ЗАВДАННЯ:
-Зроби коротке, але повне резюме тексту.
+Зроби коротке, але повне резюме.
 
-ОБОВ’ЯЗКОВО:
-- збережи всі ключові факти
-- збережи цифри
-- передай суть без спотворення
-- не вигадуй
+ВАЖЛИВО:
+- не використовуй списки
+- не використовуй "-", "*", "•"
+- не використовуй markdown
+- пиши як звичайний текст
 
 ІГНОРУЙ:
 - рекламу
-- "читайте також"
-- технічне сміття
-- зайві вступи
-
-ВАЖЛИВО:
-- не пиши "резюме"
-- не пиши "формат"
-- не додавай пояснень
-- тільки готовий текст
+- заклики підписатися
+- технічний шум
 
 Текст:
 ${text}
@@ -165,16 +145,9 @@ ${text}
 
     const result = await callGemini(prompt, maxTokens);
 
-    if (!result) {
-      return res.json({ result: "⚠️ Немає відповіді від моделі" });
-    }
-
     res.json({ result });
 
   } catch (err) {
-    if (err.message === "RATE_LIMIT") {
-      return res.json({ result: "⚠️ Ліміт. Спробуй через 20–30 сек." });
-    }
     console.error(err.message);
     res.json({ result: "❌ Помилка: " + err.message });
   }
