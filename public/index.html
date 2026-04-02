@@ -1,194 +1,181 @@
-<!DOCTYPE html>
-<html lang="uk">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>РИБА 🐟</title>
+const express = require("express");
+const path = require("path");
 
-<style>
-* { box-sizing: border-box; }
+const app = express();
 
-body {
-  margin: 0;
-  font-family: Inter, Arial;
-  background: #f7f8fc;
-  color: #222;
+app.use(express.json());
+app.use(express.static("public"));
+
+/* ================================
+   🧹 ОЧИСТКА ТЕКСТУ
+================================= */
+function cleanText(t) {
+  return t
+    .replace(/\(https?:\/\/[^\s]+\)/g, "")
+    .replace(/https?:\/\/[^\s]+/g, "")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
 }
 
-.container {
-  width: 100%;
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 12px;
+/* ================================
+   🎯 СТИЛІ
+================================= */
+const styles = {
+  telegram: `
+Зроби щільне резюме тексту.
+
+Пиши від першої особи, як для Telegram.
+
+ФОРМАТ:
+- 2–3 абзаци
+- тільки суть
+
+ПРАВИЛА:
+- без води
+- збережи всі ключові факти
+`.trim(),
+
+  neutral: `
+Зроби щільне резюме тексту.
+
+ФОРМАТ:
+- список пунктів
+- 6–10 пунктів
+
+ПРАВИЛА:
+- тільки факти
+- без вступів
+- без пояснень
+`.trim(),
+
+  journal: `
+Зроби щільне резюме тексту у стилі новини.
+
+ФОРМАТ:
+- 1 речення лід
+- далі короткі абзаци
+
+ПРАВИЛА:
+- чітко і по фактах
+- без води
+`.trim()
+};
+
+/* ================================
+   🤖 GEMINI
+================================= */
+async function callGemini(prompt, retries = 3) {
+  for (let i = 0; i <= retries; i++) {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.4
+          }
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (response.status === 429 && i < retries) {
+      await new Promise(r => setTimeout(r, 3000));
+      continue;
+    }
+
+    if (!response.ok) {
+      throw new Error(data?.error?.message || "API error");
+    }
+
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+  }
 }
 
-.card {
-  background: white;
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 5px 20px rgba(0,0,0,0.05);
-  margin-bottom: 20px;
-}
+/* ================================
+   🔥 API
+================================= */
+app.post("/api/test", async (req, res) => {
+  let { text, mode } = req.body;
 
-h1 {
-  text-align: center;
-  font-size: 28px;
-  margin-bottom: 5px;
-}
-
-.subtitle {
-  text-align: center;
-  color: #777;
-  margin-bottom: 20px;
-}
-
-textarea {
-  width: 100%;
-  min-height: 120px;
-  border-radius: 10px;
-  border: 1px solid #ddd;
-  padding: 12px;
-  font-size: 14px;
-  resize: none;
-}
-
-textarea:focus {
-  outline: none;
-  border-color: #ff9f43;
-  box-shadow: 0 0 0 2px rgba(255,159,67,0.2);
-}
-
-.counter {
-  font-weight: bold;
-  font-size: 12px;
-  text-align: right;
-  color: #777;
-  margin-bottom: 6px;
-}
-
-.time-badge {
-  font-size: 12px;
-  color: #aaa;
-  text-align: right;
-  margin-top: 6px;
-}
-
-.row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  justify-content: center;
-}
-
-button {
-  border-radius: 10px;
-  border: 1px solid #ddd;
-  padding: 8px 14px;
-  cursor: pointer;
-  background: white;
-  font-size: 14px;
-}
-
-.primary {
-  background: #ff9f43;
-  color: white;
-  border: none;
-}
-
-.stop {
-  background: #ff4d4d;
-  color: white;
-  border: none;
-}
-
-.active {
-  background: #ff9f43 !important;
-  color: white !important;
-  border: none;
-}
-
-.actions {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 10px;
-}
-</style>
-</head>
-
-<body>
-<div class="container">
-
-<h1>РИБА 🐟</h1>
-<div class="subtitle">AI генератор текстів</div>
-
-<div class="card">
-  <textarea id="input" placeholder="Встав текст..."></textarea>
-</div>
-
-<div class="card">
-  <div class="row modes">
-    <button onclick="setMode('telegram')" id="telegram">Telegram</button>
-    <button onclick="setMode('neutral')" id="neutral">Нейтрально</button>
-    <button onclick="setMode('journal')" id="journal">Журналіст</button>
-    <button onclick="setMode('auto')" id="auto">⚡ Auto</button>
-  </div>
-</div>
-
-<div class="card">
-  <button class="primary" onclick="send()">ЗРОБИТИ РИБУ</button>
-</div>
-
-<div class="card">
-  <textarea id="output" placeholder="Тут буде результат..."></textarea>
-  <div class="time-badge" id="time"></div>
-</div>
-
-</div>
-
-<script>
-let mode = "auto";
-
-function setMode(m) {
-  mode = m;
-  document.querySelectorAll(".modes button").forEach(b => b.classList.remove("active"));
-  document.getElementById(m).classList.add("active");
-}
-
-async function send() {
-  const text = document.getElementById("input").value;
-  const output = document.getElementById("output");
-  const time = document.getElementById("time");
-
-  if (!text.trim()) {
-    output.value = "⚠️ Встав текст";
-    return;
+  if (!text || text.length < 30) {
+    return res.json({ result: "⚠️ Текст занадто короткий" });
   }
 
-  const start = Date.now();
-  output.value = "⏳ Генеруємо...";
+  text = cleanText(text);
+
+  let style;
+
+  /* 🔥 AUTO MODE */
+  if (mode === "auto") {
+    style = `
+Зроби щільне резюме тексту.
+
+СПОЧАТКУ:
+визнач найкращий формат:
+- список → якщо багато фактів
+- журналістський → якщо новина
+- Telegram стиль → якщо це думка або аналітика
+
+ПОТІМ:
+напиши результат у цьому стилі.
+
+ПРАВИЛА:
+- коротко
+- без води
+- збережи всі ключові факти
+- не втрачай сенс
+`;
+  } else {
+    style = styles[mode] || styles.neutral;
+  }
 
   try {
-    const res = await fetch("/api/test", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ text, mode })
-    });
+    const prompt = `
+${style}
 
-    const data = await res.json();
-    output.value = data.result;
+ЗАВДАННЯ:
+Зроби коротке, але повне резюме тексту.
 
-    const t = ((Date.now() - start) / 1000).toFixed(1);
-    time.innerText = "⏱ " + t + "с";
+ОБОВ’ЯЗКОВО:
+- збережи факти, цифри, висновки
+- не спрощуй зміст
+- не вигадуй
 
-  } catch {
-    output.value = "❌ Помилка";
+ІГНОРУЙ:
+- рекламу
+- "читайте також"
+- технічне сміття
+
+Текст:
+${text}
+`.trim();
+
+    const result = await callGemini(prompt);
+
+    res.json({ result });
+
+  } catch (err) {
+    console.error(err.message);
+    res.json({ result: "❌ Помилка: " + err.message });
   }
-}
+});
 
-setMode("auto");
-</script>
+/* ================================
+   🌐 FRONT
+================================= */
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
-</body>
-</html>
+/* ================================
+   🚀 START
+================================= */
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("🚀 SERVER WORKS on port " + PORT);
+});
