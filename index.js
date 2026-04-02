@@ -13,12 +13,14 @@ function cleanText(t) {
   return t
     .replace(/\(https?:\/\/[^\s]+\)/g, "")
     .replace(/https?:\/\/[^\s]+/g, "")
+    .replace(/[\p{Emoji}]/gu, "")
+    .replace(/[_🤝✅🚀👉📢📣]+/g, "")
     .replace(/\n{2,}/g, "\n")
     .trim();
 }
 
 /* ================================
-   🎯 СТИЛІ
+   🎯 СТИЛІ = РЕЗЮМЕ
 ================================= */
 const styles = {
   telegram: `
@@ -28,11 +30,13 @@ const styles = {
 
 ФОРМАТ:
 - 2–3 абзаци
-- тільки суть
+- тільки ключова суть
 
 ПРАВИЛА:
 - без води
-- збережи всі ключові факти
+- коротко
+- збережи факти, цифри, висновки
+- не вигадуй
 `.trim(),
 
   neutral: `
@@ -40,31 +44,42 @@ const styles = {
 
 ФОРМАТ:
 - список пунктів
-- 6–10 пунктів
+- 5–10 пунктів
 
 ПРАВИЛА:
 - тільки факти
 - без вступів
 - без пояснень
+- без води
 `.trim(),
 
   journal: `
 Зроби щільне резюме тексту у стилі новини.
 
 ФОРМАТ:
-- 1 речення лід
-- далі короткі абзаци
+- 1 короткий лід
+- далі факти
 
 ПРАВИЛА:
-- чітко і по фактах
-- без води
+- максимально стисло
+- тільки важливе
+- без зайвих слів
 `.trim()
+};
+
+/* ================================
+   📏 ОБСЯГ
+================================= */
+const sizes = {
+  short:  { instruction: "Дуже коротко: 2–4 речення.", maxTokens: 200 },
+  medium: { instruction: "Середній обсяг: 5–8 речень.", maxTokens: 450 },
+  long:   { instruction: "Детально, але без води: 8–14 речень.", maxTokens: 800 }
 };
 
 /* ================================
    🤖 GEMINI
 ================================= */
-async function callGemini(prompt, retries = 3) {
+async function callGemini(prompt, maxTokens = 450, retries = 3) {
   for (let i = 0; i <= retries; i++) {
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`,
@@ -74,7 +89,9 @@ async function callGemini(prompt, retries = 3) {
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
-            temperature: 0.4
+            maxOutputTokens: maxTokens,
+            temperature: 0.4,
+            topP: 0.9
           }
         })
       }
@@ -82,13 +99,17 @@ async function callGemini(prompt, retries = 3) {
 
     const data = await response.json();
 
-    if (response.status === 429 && i < retries) {
-      await new Promise(r => setTimeout(r, 3000));
-      continue;
+    if (response.status === 429 || response.status === 503) {
+      if (i < retries) {
+        await new Promise(r => setTimeout(r, (i + 1) * 3000));
+        continue;
+      }
+      throw new Error("RATE_LIMIT");
     }
 
     if (!response.ok) {
-      throw new Error(data?.error?.message || "API error");
+      const msg = data?.error?.message || "";
+      throw new Error(msg || "API error");
     }
 
     return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
@@ -99,66 +120,61 @@ async function callGemini(prompt, retries = 3) {
    🔥 API
 ================================= */
 app.post("/api/test", async (req, res) => {
-  let { text, mode } = req.body;
+  let { text, mode, size } = req.body;
 
-  if (!text || text.length < 30) {
-    return res.json({ result: "⚠️ Текст занадто короткий" });
+  if (!text || text.trim().length < 30) {
+    return res.json({ result: "⚠️ Текст занадто короткий." });
   }
 
   text = cleanText(text);
 
-  let style;
-
-  /* 🔥 AUTO MODE */
-  if (mode === "auto") {
-    style = `
-Зроби щільне резюме тексту.
-
-СПОЧАТКУ:
-визнач найкращий формат:
-- список → якщо багато фактів
-- журналістський → якщо новина
-- Telegram стиль → якщо це думка або аналітика
-
-ПОТІМ:
-напиши результат у цьому стилі.
-
-ПРАВИЛА:
-- коротко
-- без води
-- збережи всі ключові факти
-- не втрачай сенс
-`;
-  } else {
-    style = styles[mode] || styles.neutral;
-  }
+  const style = styles[mode] || styles.neutral;
+  const { instruction, maxTokens } = sizes[size] || sizes.medium;
 
   try {
     const prompt = `
 ${style}
 
+ОБСЯГ:
+${instruction}
+
 ЗАВДАННЯ:
 Зроби коротке, але повне резюме тексту.
 
 ОБОВ’ЯЗКОВО:
-- збережи факти, цифри, висновки
-- не спрощуй зміст
+- збережи всі ключові факти
+- збережи цифри
+- передай суть без спотворення
 - не вигадуй
 
 ІГНОРУЙ:
 - рекламу
 - "читайте також"
 - технічне сміття
+- зайві вступи
+
+ВАЖЛИВО:
+- не пиши "резюме"
+- не пиши "формат"
+- не додавай пояснень
+- тільки готовий текст
 
 Текст:
 ${text}
 `.trim();
 
-    const result = await callGemini(prompt);
+    const result = await callGemini(prompt, maxTokens);
+
+    if (!result) {
+      return res.json({ result: "⚠️ Немає відповіді від моделі" });
+    }
 
     res.json({ result });
 
   } catch (err) {
+    if (err.message === "RATE_LIMIT") {
+      return res.json({ result: "⚠️ Ліміт. Спробуй через 20–30 сек." });
+    }
     console.error(err.message);
     res.json({ result: "❌ Помилка: " + err.message });
   }
