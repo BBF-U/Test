@@ -7,7 +7,7 @@ app.use(express.json());
 app.use(express.static("public"));
 
 /* ================================
-   🧹 ОЧИСТКА
+   🧹 ОЧИСТКА ВХІДНОГО ТЕКСТУ
 ================================= */
 function cleanText(t) {
   return t
@@ -15,6 +15,17 @@ function cleanText(t) {
     .replace(/https?:\/\/[^\s]+/g, "")
     .replace(/[\p{Emoji}]/gu, "")
     .replace(/\n{2,}/g, "\n")
+    .trim();
+}
+
+/* ================================
+   🧹 ОЧИСТКА ВИХІДНОГО ТЕКСТУ
+================================= */
+function cleanResult(t) {
+  return t
+    .replace(/^[\-\*\•]\s+/gm, "")     // прибрати списки
+    .replace(/\*\*/g, "")              // прибрати markdown **
+    .replace(/\n{3,}/g, "\n\n")        // норм абзаци
     .trim();
 }
 
@@ -88,7 +99,7 @@ async function callGemini(prompt, maxTokens = 400) {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           maxOutputTokens: maxTokens,
-          temperature: 0.4
+          temperature: 0.35
         }
       })
     }
@@ -143,7 +154,9 @@ ${instruction}
 ${text}
 `.trim();
 
-    const result = await callGemini(prompt, maxTokens);
+    let result = await callGemini(prompt, maxTokens);
+
+    result = cleanResult(result); // 🔥 ось це ключ
 
     res.json({ result });
 
