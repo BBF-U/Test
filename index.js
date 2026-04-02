@@ -220,6 +220,8 @@ app.get("/", (req, res) => {
 /* ================================
    🚀 START
 ================================= */
-app.listen(3000, "0.0.0.0", () => {
-  console.log("🚀 SERVER WORKS");
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("🚀 SERVER WORKS on port " + PORT);
 });
