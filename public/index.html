@@ -44,7 +44,6 @@ h1 {
 
 textarea {
   width: 100%;
-  display: block;
   min-height: 120px;
   border-radius: 10px;
   border: 1px solid #ddd;
@@ -52,8 +51,6 @@ textarea {
   font-size: 14px;
   resize: none;
 }
-
-#output { overflow: hidden; }
 
 textarea:focus {
   outline: none;
@@ -69,16 +66,11 @@ textarea:focus {
   margin-bottom: 6px;
 }
 
-.counter.green  { color: #26de81; }
-.counter.yellow { color: #f7b731; }
-.counter.red    { color: #ff4d4d; }
-
 .time-badge {
   font-size: 12px;
   color: #aaa;
   text-align: right;
   margin-top: 6px;
-  min-height: 18px;
 }
 
 .row {
@@ -95,11 +87,6 @@ button {
   cursor: pointer;
   background: white;
   font-size: 14px;
-}
-
-button:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .primary {
@@ -131,254 +118,76 @@ button:disabled {
 <body>
 <div class="container">
 
-  <h1>РИБА 🐟</h1>
-  <div class="subtitle">AI генератор текстів</div>
+<h1>РИБА 🐟</h1>
+<div class="subtitle">AI генератор текстів</div>
 
-  <!-- ВХІД -->
-  <div class="card">
-    <div class="counter" id="counterInput">0 символів</div>
-    <textarea id="input" placeholder="Встав текст..."></textarea>
-    <div class="actions">
-      <button onclick="clearInput()">Очистити</button>
-    </div>
-  </div>
+<div class="card">
+  <textarea id="input" placeholder="Встав текст..."></textarea>
+</div>
 
-  <!-- НАЛАШТУВАННЯ -->
-  <div class="card">
-    <div class="row modes">
-      <button onclick="setMode('telegram')" id="telegram">Telegram</button>
-      <button onclick="setMode('neutral')" id="neutral">Нейтрально</button>
-      <button onclick="setMode('journal')" id="journal">Журналіст</button>
-    </div>
-    <div class="row sizes" style="margin-top:10px">
-      <button onclick="setSize('short')" id="short">Стисло</button>
-      <button onclick="setSize('medium')" id="medium">Середнє</button>
-      <button onclick="setSize('long')" id="long">Детально</button>
-    </div>
+<div class="card">
+  <div class="row modes">
+    <button onclick="setMode('telegram')" id="telegram">Telegram</button>
+    <button onclick="setMode('neutral')" id="neutral">Нейтрально</button>
+    <button onclick="setMode('journal')" id="journal">Журналіст</button>
+    <button onclick="setMode('auto')" id="auto">⚡ Auto</button>
   </div>
+</div>
 
-  <!-- КНОПКИ -->
-  <div class="card">
-    <div class="row">
-      <button id="btn" class="primary" onclick="send()">ЗРОБИТИ РИБУ</button>
-      <button id="stopBtn" class="stop" onclick="stopGen()" disabled>СТОП</button>
-    </div>
-  </div>
+<div class="card">
+  <button class="primary" onclick="send()">ЗРОБИТИ РИБУ</button>
+</div>
 
-  <!-- РЕЗУЛЬТАТ -->
-  <div class="card">
-    <div class="counter" id="counterOutput">0 символів</div>
-    <textarea id="output" placeholder="Тут буде результат..."></textarea>
-    <div class="time-badge" id="timeBadge"></div>
-    <div class="actions">
-      <div style="display:flex; gap:8px;">
-        <button onclick="clearOutput()">Очистити</button>
-        <button id="retryBtn" onclick="retry()" disabled>🔄 Ще раз</button>
-      </div>
-      <button onclick="copyOutput()">📋 Скопіювати</button>
-    </div>
-  </div>
+<div class="card">
+  <textarea id="output" placeholder="Тут буде результат..."></textarea>
+  <div class="time-badge" id="time"></div>
+</div>
 
 </div>
 
 <script>
-let mode = "neutral";
-let size = "medium";
-let controller = null;
-let lastText = null;
-let lastMode = null;
-let lastSize = null;
-let startTime = null;
+let mode = "auto";
 
-const input         = document.getElementById("input");
-const output        = document.getElementById("output");
-const counterInput  = document.getElementById("counterInput");
-const counterOutput = document.getElementById("counterOutput");
-const btn           = document.getElementById("btn");
-const stopBtn       = document.getElementById("stopBtn");
-const retryBtn      = document.getElementById("retryBtn");
-const timeBadge     = document.getElementById("timeBadge");
-
-/* ================================
-   🧹 ОЧИЩЕННЯ
-================================= */
-function cleanText(text) {
-  return text
-    .replace(/\(https?:\/\/[^\s]+\)/g, "")
-    .replace(/https?:\/\/[^\s]+/g, "")
-    .replace(/.*(Підтримати|Приєднатися|Subscribe).*$/gmi, "")
-    .replace(/[\p{Emoji}]/gu, "")
-    .replace(/[_=🤝✅🚀👉]+/g, "")
-    .replace(/\s{2,}/g, " ")
-    .replace(/\n{2,}/g, "\n")
-    .trim();
-}
-
-/* ================================
-   📐 AUTO RESIZE
-================================= */
-function autoResize(el) {
-  el.style.height = "auto";
-  el.style.height = el.scrollHeight + "px";
-}
-
-/* ================================
-   📋 ВСТАВКА З ОЧИСТКОЮ
-================================= */
-input.addEventListener("paste", function(e) {
-  e.preventDefault();
-  const pasted = (e.clipboardData || window.clipboardData).getData("text");
-  input.value = cleanText(pasted);
-  counterInput.innerText = input.value.length + " символів";
-  autoResize(input);
-});
-
-input.addEventListener("input", () => {
-  counterInput.innerText = input.value.length + " символів";
-  autoResize(input);
-});
-
-/* ================================
-   🎛 ЛІЧИЛЬНИК РЕЗУЛЬТАТУ
-================================= */
-function updateOutputCounter() {
-  const len = output.value.length;
-  counterOutput.innerText = len + " символів";
-  counterOutput.className = "counter";
-  if (len > 0 && len <= 1000)  counterOutput.classList.add("green");
-  else if (len <= 1500)        counterOutput.classList.add("yellow");
-  else if (len > 1500)         counterOutput.classList.add("red");
-}
-
-output.addEventListener("input", () => {
-  autoResize(output);
-  updateOutputCounter();
-});
-
-/* ================================
-   🎛 РЕЖИМИ / РОЗМІРИ
-================================= */
 function setMode(m) {
   mode = m;
   document.querySelectorAll(".modes button").forEach(b => b.classList.remove("active"));
   document.getElementById(m).classList.add("active");
 }
 
-function setSize(s) {
-  size = s;
-  document.querySelectorAll(".sizes button").forEach(b => b.classList.remove("active"));
-  document.getElementById(s).classList.add("active");
-}
+async function send() {
+  const text = document.getElementById("input").value;
+  const output = document.getElementById("output");
+  const time = document.getElementById("time");
 
-/* ================================
-   🚀 ГЕНЕРАЦІЯ
-================================= */
-async function send(isRetry = false) {
-  if (!input.value.trim()) {
-    output.value = "⚠️ Спочатку вставте текст.";
-    autoResize(output);
+  if (!text.trim()) {
+    output.value = "⚠️ Встав текст";
     return;
   }
 
-  if (!isRetry) {
-    lastText = input.value;
-    lastMode = mode;
-    lastSize = size;
-  }
-
-  controller = new AbortController();
-  btn.disabled = true;
-  stopBtn.disabled = false;
-  retryBtn.disabled = true;
-  btn.innerText = "⏳ Генеруємо...";
+  const start = Date.now();
   output.value = "⏳ Генеруємо...";
-  timeBadge.innerText = "";
-  autoResize(output);
-  counterOutput.innerText = "";
-  counterOutput.className = "counter";
-  startTime = Date.now();
 
   try {
     const res = await fetch("/api/test", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text: isRetry ? lastText : input.value,
-        mode: isRetry ? lastMode : mode,
-        size: isRetry ? lastSize : size
-      }),
-      signal: controller.signal
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ text, mode })
     });
 
     const data = await res.json();
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-
     output.value = data.result;
-    autoResize(output);
-    updateOutputCounter();
-    timeBadge.innerText = `⏱ готово за ${elapsed}с`;
-    retryBtn.disabled = false;
 
-  } catch (err) {
-    output.value = err.name === "AbortError" ? "⛔ Зупинено" : "❌ Помилка з'єднання";
-    autoResize(output);
-  } finally {
-    btn.disabled = false;
-    stopBtn.disabled = true;
-    btn.innerText = "ЗРОБИТИ РИБУ";
+    const t = ((Date.now() - start) / 1000).toFixed(1);
+    time.innerText = "⏱ " + t + "с";
+
+  } catch {
+    output.value = "❌ Помилка";
   }
 }
 
-/* ================================
-   🔄 ЩЕ РАЗ
-================================= */
-function retry() {
-  if (lastText) send(true);
-}
-
-/* ================================
-   ⛔ СТОП
-================================= */
-function stopGen() {
-  if (controller) controller.abort();
-}
-
-/* ================================
-   🗑 ОЧИЩЕННЯ
-================================= */
-function clearInput() {
-  input.value = "";
-  counterInput.innerText = "0 символів";
-  input.style.height = "auto";
-}
-
-function clearOutput() {
-  output.value = "";
-  counterOutput.innerText = "0 символів";
-  counterOutput.className = "counter";
-  output.style.height = "auto";
-  timeBadge.innerText = "";
-  retryBtn.disabled = true;
-}
-
-/* ================================
-   📋 КОПІЮВАТИ
-================================= */
-function copyOutput() {
-  if (!output.value) return;
-  navigator.clipboard.writeText(output.value).then(() => {
-    const original = "📋 Скопіювати";
-    const copyBtn = document.querySelector(".actions button:last-child");
-    copyBtn.innerText = "✅ Скопійовано";
-    setTimeout(() => copyBtn.innerText = original, 1500);
-  });
-}
-
-/* ================================
-   🎯 ДЕФОЛТ
-================================= */
-setMode("neutral");
-setSize("medium");
+setMode("auto");
 </script>
 
 </body>
