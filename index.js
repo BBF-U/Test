@@ -1,181 +1,239 @@
-const express = require("express");
-const path = require("path");
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>РИБА 🐟</title>
 
-const app = express();
+<style>
+* { box-sizing: border-box; }
 
-app.use(express.json());
-app.use(express.static("public"));
-
-/* ================================
-   🧹 ОЧИСТКА ТЕКСТУ
-================================= */
-function cleanText(t) {
-  return t
-    .replace(/\(https?:\/\/[^\s]+\)/g, "")
-    .replace(/https?:\/\/[^\s]+/g, "")
-    .replace(/\n{2,}/g, "\n")
-    .trim();
+body {
+  margin: 0;
+  font-family: Inter, Arial;
+  background: #f7f8fc;
+  color: #222;
 }
 
-/* ================================
-   🎯 СТИЛІ
-================================= */
-const styles = {
-  telegram: `
-Зроби щільне резюме тексту.
-
-Пиши від першої особи, як для Telegram.
-
-ФОРМАТ:
-- 2–3 абзаци
-- тільки суть
-
-ПРАВИЛА:
-- без води
-- збережи всі ключові факти
-`.trim(),
-
-  neutral: `
-Зроби щільне резюме тексту.
-
-ФОРМАТ:
-- список пунктів
-- 6–10 пунктів
-
-ПРАВИЛА:
-- тільки факти
-- без вступів
-- без пояснень
-`.trim(),
-
-  journal: `
-Зроби щільне резюме тексту у стилі новини.
-
-ФОРМАТ:
-- 1 речення лід
-- далі короткі абзаци
-
-ПРАВИЛА:
-- чітко і по фактах
-- без води
-`.trim()
-};
-
-/* ================================
-   🤖 GEMINI
-================================= */
-async function callGemini(prompt, retries = 3) {
-  for (let i = 0; i <= retries; i++) {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.4
-          }
-        })
-      }
-    );
-
-    const data = await response.json();
-
-    if (response.status === 429 && i < retries) {
-      await new Promise(r => setTimeout(r, 3000));
-      continue;
-    }
-
-    if (!response.ok) {
-      throw new Error(data?.error?.message || "API error");
-    }
-
-    return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
-  }
+.container {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 12px;
 }
 
-/* ================================
-   🔥 API
-================================= */
-app.post("/api/test", async (req, res) => {
-  let { text, mode } = req.body;
+.card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.05);
+  margin-bottom: 20px;
+}
 
-  if (!text || text.length < 30) {
-    return res.json({ result: "⚠️ Текст занадто короткий" });
+h1 {
+  text-align: center;
+  font-size: 28px;
+  margin-bottom: 5px;
+}
+
+.subtitle {
+  text-align: center;
+  color: #777;
+  margin-bottom: 20px;
+}
+
+textarea {
+  width: 100%;
+  display: block;
+  min-height: 120px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  padding: 12px;
+  font-size: 14px;
+  resize: none;
+}
+
+#output { overflow: hidden; }
+
+textarea:focus {
+  outline: none;
+  border-color: #ff9f43;
+  box-shadow: 0 0 0 2px rgba(255,159,67,0.2);
+}
+
+.counter {
+  font-weight: bold;
+  font-size: 12px;
+  text-align: right;
+  color: #777;
+  margin-bottom: 6px;
+}
+
+.counter.green  { color: #26de81; }
+.counter.yellow { color: #f7b731; }
+.counter.red    { color: #ff4d4d; }
+
+.time-badge {
+  font-size: 12px;
+  color: #aaa;
+  text-align: right;
+  margin-top: 6px;
+  min-height: 18px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+button {
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  padding: 8px 14px;
+  cursor: pointer;
+  background: white;
+  font-size: 14px;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.primary {
+  background: #ff9f43;
+  color: white;
+  border: none;
+}
+
+.stop {
+  background: #ff4d4d;
+  color: white;
+  border: none;
+}
+
+.active {
+  background: #ff9f43 !important;
+  color: white !important;
+  border: none;
+}
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+  <h1>РИБА 🐟</h1>
+  <div class="subtitle">AI генератор текстів</div>
+
+  <div class="card">
+    <div class="counter" id="counterInput">0 символів</div>
+    <textarea id="input" placeholder="Встав текст..."></textarea>
+    <div class="actions">
+      <button onclick="clearInput()">Очистити</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row modes">
+      <button onclick="setMode('telegram')" id="telegram">Telegram</button>
+      <button onclick="setMode('neutral')" id="neutral">Нейтрально</button>
+      <button onclick="setMode('journal')" id="journal">Журналіст</button>
+      <button onclick="setMode('auto')" id="auto">⚡ Auto</button>
+    </div>
+
+    <div class="row sizes" style="margin-top:10px">
+      <button onclick="setSize('short')" id="short">Стисло</button>
+      <button onclick="setSize('medium')" id="medium">Середнє</button>
+      <button onclick="setSize('long')" id="long">Детально</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <button id="btn" class="primary" onclick="send()">ЗРОБИТИ РИБУ</button>
+      <button id="stopBtn" class="stop" onclick="stopGen()" disabled>СТОП</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="counter" id="counterOutput">0 символів</div>
+    <textarea id="output" placeholder="Тут буде результат..."></textarea>
+    <div class="time-badge" id="timeBadge"></div>
+  </div>
+
+</div>
+
+<script>
+let mode = "neutral";
+let size = "medium";
+
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll(".modes button").forEach(b => b.classList.remove("active"));
+  document.getElementById(m).classList.add("active");
+}
+
+function setSize(s) {
+  size = s;
+  document.querySelectorAll(".sizes button").forEach(b => b.classList.remove("active"));
+  document.getElementById(s).classList.add("active");
+}
+
+async function send() {
+  const input = document.getElementById("input");
+  const output = document.getElementById("output");
+  const timeBadge = document.getElementById("timeBadge");
+
+  if (!input.value.trim()) {
+    output.value = "⚠️ Встав текст";
+    return;
   }
 
-  text = cleanText(text);
-
-  let style;
-
-  /* 🔥 AUTO MODE */
-  if (mode === "auto") {
-    style = `
-Зроби щільне резюме тексту.
-
-СПОЧАТКУ:
-визнач найкращий формат:
-- список → якщо багато фактів
-- журналістський → якщо новина
-- Telegram стиль → якщо це думка або аналітика
-
-ПОТІМ:
-напиши результат у цьому стилі.
-
-ПРАВИЛА:
-- коротко
-- без води
-- збережи всі ключові факти
-- не втрачай сенс
-`;
-  } else {
-    style = styles[mode] || styles.neutral;
-  }
+  const start = Date.now();
+  output.value = "⏳ Генеруємо...";
 
   try {
-    const prompt = `
-${style}
+    const res = await fetch("/api/test", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        text: input.value,
+        mode,
+        size
+      })
+    });
 
-ЗАВДАННЯ:
-Зроби коротке, але повне резюме тексту.
+    const data = await res.json();
+    output.value = data.result;
 
-ОБОВ’ЯЗКОВО:
-- збережи факти, цифри, висновки
-- не спрощуй зміст
-- не вигадуй
+    const t = ((Date.now() - start) / 1000).toFixed(1);
+    timeBadge.innerText = "⏱ " + t + "с";
 
-ІГНОРУЙ:
-- рекламу
-- "читайте також"
-- технічне сміття
-
-Текст:
-${text}
-`.trim();
-
-    const result = await callGemini(prompt);
-
-    res.json({ result });
-
-  } catch (err) {
-    console.error(err.message);
-    res.json({ result: "❌ Помилка: " + err.message });
+  } catch {
+    output.value = "❌ Помилка";
   }
-});
+}
 
-/* ================================
-   🌐 FRONT
-================================= */
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
+function clearInput() {
+  document.getElementById("input").value = "";
+}
 
-/* ================================
-   🚀 START
-================================= */
-const PORT = process.env.PORT || 3000;
+function stopGen() {}
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log("🚀 SERVER WORKS on port " + PORT);
-});
+setMode("neutral");
+setSize("medium");
+</script>
+
+</body>
+</html>
