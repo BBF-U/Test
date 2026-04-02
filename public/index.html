@@ -12,12 +12,11 @@ body {
   margin: 0;
   font-family: Inter, Arial;
   background: #f7f8fc;
-  color: #222;
 }
 
 .container {
   max-width: 800px;
-  margin: 0 auto;
+  margin: auto;
   padding: 12px;
 }
 
@@ -25,7 +24,6 @@ body {
   background: white;
   border-radius: 16px;
   padding: 20px;
-  box-shadow: 0 5px 20px rgba(0,0,0,0.05);
   margin-bottom: 20px;
 }
 
@@ -42,6 +40,7 @@ textarea {
   font-size: 12px;
   text-align: right;
   margin-bottom: 6px;
+  color: #888;
 }
 
 .row {
@@ -135,6 +134,42 @@ let lastText = null;
 let lastMode = null;
 let lastSize = null;
 
+const input = document.getElementById("input");
+const output = document.getElementById("output");
+const counterInput = document.getElementById("counterInput");
+const counterOutput = document.getElementById("counterOutput");
+
+/* ================================
+   🧹 ОЧИСТКА ВИХОДУ (прибираємо *)
+================================= */
+function cleanOutput(text) {
+  return text
+    .replace(/^\*\s*/gm, "")
+    .replace(/\*\*/g, "")
+    .trim();
+}
+
+/* ================================
+   📊 ЛІЧИЛЬНИКИ
+================================= */
+function updateInputCounter() {
+  counterInput.innerText = input.value.length + " символів";
+}
+
+function updateOutputCounter() {
+  counterOutput.innerText = output.value.length + " символів";
+}
+
+/* ================================
+   EVENTS
+================================= */
+input.addEventListener("input", updateInputCounter);
+
+output.addEventListener("input", updateOutputCounter);
+
+/* ================================
+   MODE / SIZE
+================================= */
 function setMode(m) {
   mode = m;
   document.querySelectorAll(".modes button").forEach(b => b.classList.remove("active"));
@@ -147,10 +182,10 @@ function setSize(s) {
   document.getElementById(s).classList.add("active");
 }
 
+/* ================================
+   SEND
+================================= */
 async function send(isRetry = false) {
-  const input = document.getElementById("input");
-  const output = document.getElementById("output");
-
   if (!input.value.trim()) {
     output.value = "⚠️ Встав текст";
     return;
@@ -163,6 +198,7 @@ async function send(isRetry = false) {
   }
 
   output.value = "⏳ Генеруємо...";
+  updateOutputCounter();
 
   try {
     const res = await fetch("/api/test", {
@@ -178,7 +214,9 @@ async function send(isRetry = false) {
     });
 
     const data = await res.json();
-    output.value = data.result;
+
+    output.value = cleanOutput(data.result);
+    updateOutputCounter();
 
     document.getElementById("retryBtn").disabled = false;
 
@@ -187,28 +225,46 @@ async function send(isRetry = false) {
   }
 }
 
+/* ================================
+   RETRY
+================================= */
 function retry() {
   if (lastText) send(true);
 }
 
+/* ================================
+   STOP
+================================= */
 function stopGen() {}
 
+/* ================================
+   CLEAR
+================================= */
 function clearInput() {
-  document.getElementById("input").value = "";
+  input.value = "";
+  updateInputCounter();
 }
 
 function clearOutput() {
-  document.getElementById("output").value = "";
+  output.value = "";
+  updateOutputCounter();
 }
 
+/* ================================
+   COPY
+================================= */
 function copyOutput() {
-  const text = document.getElementById("output").value;
-  if (!text) return;
-  navigator.clipboard.writeText(text);
+  if (!output.value) return;
+  navigator.clipboard.writeText(output.value);
 }
 
+/* ================================
+   INIT
+================================= */
 setMode("neutral");
 setSize("medium");
+updateInputCounter();
+updateOutputCounter();
 </script>
 
 </body>
