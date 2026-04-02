@@ -16,7 +16,6 @@ body {
 }
 
 .container {
-  width: 100%;
   max-width: 800px;
   margin: 0 auto;
   padding: 12px;
@@ -30,30 +29,13 @@ body {
   margin-bottom: 20px;
 }
 
-h1 {
-  text-align: center;
-  font-size: 28px;
-}
-
-.subtitle {
-  text-align: center;
-  color: #777;
-  margin-bottom: 20px;
-}
-
 textarea {
   width: 100%;
   min-height: 120px;
   border-radius: 10px;
   border: 1px solid #ddd;
   padding: 12px;
-  font-size: 14px;
   resize: none;
-}
-
-textarea:focus {
-  outline: none;
-  border-color: #ff9f43;
 }
 
 .counter {
@@ -62,22 +44,11 @@ textarea:focus {
   margin-bottom: 6px;
 }
 
-.counter.green { color: #26de81; }
-.counter.yellow { color: #f7b731; }
-.counter.red { color: #ff4d4d; }
-
-.time-badge {
-  font-size: 12px;
-  color: #aaa;
-  text-align: right;
-  margin-top: 6px;
-}
-
 .row {
   display: flex;
-  flex-wrap: wrap;
   gap: 10px;
   justify-content: center;
+  flex-wrap: wrap;
 }
 
 button {
@@ -108,13 +79,11 @@ button {
 <body>
 <div class="container">
 
-<h1>РИБА 🐟</h1>
-<div class="subtitle">AI генератор текстів</div>
-
 <!-- INPUT -->
 <div class="card">
   <div class="counter" id="counterInput">0 символів</div>
   <textarea id="input" placeholder="Встав текст..."></textarea>
+
   <div class="actions">
     <button onclick="clearInput()">Очистити</button>
   </div>
@@ -126,7 +95,6 @@ button {
     <button onclick="setMode('telegram')" id="telegram">Telegram</button>
     <button onclick="setMode('neutral')" id="neutral">Нейтрально</button>
     <button onclick="setMode('journal')" id="journal">Журналіст</button>
-    <button onclick="setMode('auto')" id="auto">⚡ Auto</button>
   </div>
 
   <div class="row sizes" style="margin-top:10px">
@@ -140,6 +108,7 @@ button {
 <div class="card">
   <div class="row">
     <button id="btn" class="primary" onclick="send()">ЗРОБИТИ РИБУ</button>
+    <button id="stopBtn" class="stop" onclick="stopGen()" disabled>СТОП</button>
   </div>
 </div>
 
@@ -147,7 +116,14 @@ button {
 <div class="card">
   <div class="counter" id="counterOutput">0 символів</div>
   <textarea id="output" placeholder="Тут буде результат..."></textarea>
-  <div class="time-badge" id="timeBadge"></div>
+
+  <div class="actions">
+    <div style="display:flex; gap:8px;">
+      <button onclick="clearOutput()">Очистити</button>
+      <button id="retryBtn" onclick="retry()" disabled>🔄 Ще раз</button>
+    </div>
+    <button onclick="copyOutput()">📋 Скопіювати</button>
+  </div>
 </div>
 
 </div>
@@ -155,65 +131,10 @@ button {
 <script>
 let mode = "neutral";
 let size = "medium";
+let lastText = null;
+let lastMode = null;
+let lastSize = null;
 
-const input = document.getElementById("input");
-const output = document.getElementById("output");
-const counterInput = document.getElementById("counterInput");
-const counterOutput = document.getElementById("counterOutput");
-const timeBadge = document.getElementById("timeBadge");
-
-/* ================================
-   📐 AUTO RESIZE
-================================= */
-function autoResize(el) {
-  el.style.height = "auto";
-  el.style.height = el.scrollHeight + "px";
-}
-
-/* ================================
-   📊 ЧАС ЧИТАННЯ
-================================= */
-function readingTime(text) {
-  const words = text.trim().split(/\s+/).length;
-  const minutes = words / 200;
-  return minutes < 1
-    ? "≈ менше 1 хв"
-    : "≈ " + Math.ceil(minutes) + " хв";
-}
-
-/* ================================
-   🔢 INPUT COUNTER
-================================= */
-input.addEventListener("input", () => {
-  counterInput.innerText = input.value.length + " символів";
-  autoResize(input);
-});
-
-/* ================================
-   🔢 OUTPUT COUNTER
-================================= */
-function updateOutputCounter() {
-  const len = output.value.length;
-  counterOutput.innerText = len + " символів";
-
-  counterOutput.className = "counter";
-
-  if (len > 0 && len <= 1000) counterOutput.classList.add("green");
-  else if (len <= 1500) counterOutput.classList.add("yellow");
-  else counterOutput.classList.add("red");
-
-  // 🔥 додаємо час читання
-  timeBadge.innerText = readingTime(output.value);
-}
-
-output.addEventListener("input", () => {
-  autoResize(output);
-  updateOutputCounter();
-});
-
-/* ================================
-   🎛 MODE / SIZE
-================================= */
 function setMode(m) {
   mode = m;
   document.querySelectorAll(".modes button").forEach(b => b.classList.remove("active"));
@@ -226,17 +147,22 @@ function setSize(s) {
   document.getElementById(s).classList.add("active");
 }
 
-/* ================================
-   🚀 SEND
-================================= */
-async function send() {
+async function send(isRetry = false) {
+  const input = document.getElementById("input");
+  const output = document.getElementById("output");
+
   if (!input.value.trim()) {
     output.value = "⚠️ Встав текст";
     return;
   }
 
+  if (!isRetry) {
+    lastText = input.value;
+    lastMode = mode;
+    lastSize = size;
+  }
+
   output.value = "⏳ Генеруємо...";
-  autoResize(output);
 
   try {
     const res = await fetch("/api/test", {
@@ -245,29 +171,40 @@ async function send() {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        text: input.value,
-        mode,
-        size
+        text: isRetry ? lastText : input.value,
+        mode: isRetry ? lastMode : mode,
+        size: isRetry ? lastSize : size
       })
     });
 
     const data = await res.json();
     output.value = data.result;
 
-    autoResize(output);
-    updateOutputCounter();
+    document.getElementById("retryBtn").disabled = false;
 
   } catch {
     output.value = "❌ Помилка";
   }
 }
 
-/* ================================
-   🗑 CLEAR
-================================= */
+function retry() {
+  if (lastText) send(true);
+}
+
+function stopGen() {}
+
 function clearInput() {
-  input.value = "";
-  counterInput.innerText = "0 символів";
+  document.getElementById("input").value = "";
+}
+
+function clearOutput() {
+  document.getElementById("output").value = "";
+}
+
+function copyOutput() {
+  const text = document.getElementById("output").value;
+  if (!text) return;
+  navigator.clipboard.writeText(text);
 }
 
 setMode("neutral");
