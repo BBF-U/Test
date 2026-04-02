@@ -23,64 +23,57 @@ function cleanText(t) {
    🎯 СТИЛІ
 ================================= */
 const styles = {
+  summary: `
+Зроби щільне резюме тексту.
+
+ВИМОГИ:
+- це НЕ переказ і НЕ спрощення
+- це короткий виклад змісту
+- збережи всі ключові факти, цифри, тренди та висновки
+- нічого важливого не викидай
+
+ФОРМАТ:
+- список пунктів
+- кожен пункт = 1 ключова ідея
+- 8–12 пунктів максимум
+- без вступу і без висновку
+
+СТИЛЬ:
+- сухо, чітко, по суті
+- як аналітичний конспект
+
+ЗАБОРОНЕНО:
+- узагальнення ("багато", "часто")
+- переписування як історії
+
+РЕЗУЛЬТАТ:
+- має замінити читання статті
+`.trim(),
+
   telegram: `
-Ти ведеш особистий Telegram-канал.
-
 Пиши живо, по-людськи, від першої особи.
-Текст має виглядати як думка або розповідь, а не новина.
-
-Структура:
-- 2–3 абзаци
-- перший — головна думка
-- далі — деталі
-- в кінці — короткий висновок або реакція
-
-Пиши природно: чергуй короткі і довші речення.
-
-Уникай сухого або канцелярського стилю.
-Не пиши кожне речення з нового рядка.
+2–3 абзаци, природна мова.
 `.trim(),
 
   neutral: `
-Перекажи суть простою людською мовою.
-
-Структура:
-- 2 абзаци
-- перший — головне
-- другий — деталі
-
-Пиши від третьої особи.
-Без складних формулювань і канцеляриту.
-Текст має читатися легко, як пояснення знайомому.
-`.trim(),
-
-  journal: `
-Напиши як у якісному онлайн-медіа.
-
-Структура:
-- лід (1 речення)
-- факти
-- короткий контекст або висновок
-
-Кожен блок — окремий абзац.
-Пиши чітко, без зайвих повторів.
-Використовуй нейтральний тон і третю особу.
+Коротко і просто поясни суть.
+2 абзаци, без складних формулювань.
 `.trim()
 };
 
 /* ================================
-   📏 ОБСЯГ
+   📏 ОБСЯГ (для summary — більше токенів)
 ================================= */
 const sizes = {
-  short:  { instruction: "Дуже коротко: 2–4 речення.", maxTokens: 200 },
-  medium: { instruction: "Середній обсяг: 5–8 речень.", maxTokens: 450 },
-  long:   { instruction: "Детально, але без води: 8–14 речень.", maxTokens: 800 }
+  short:  { maxTokens: 400 },
+  medium: { maxTokens: 800 },
+  long:   { maxTokens: 1200 }
 };
 
 /* ================================
-   🤖 GEMINI ЗАПИТ
+   🤖 GEMINI
 ================================= */
-async function callGemini(prompt, maxTokens = 450, retries = 3) {
+async function callGemini(prompt, maxTokens = 800, retries = 3) {
   for (let i = 0; i <= retries; i++) {
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`,
@@ -91,7 +84,7 @@ async function callGemini(prompt, maxTokens = 450, retries = 3) {
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             maxOutputTokens: maxTokens,
-            temperature: 0.55,
+            temperature: 0.4,
             topP: 0.85
           }
         })
@@ -102,7 +95,7 @@ async function callGemini(prompt, maxTokens = 450, retries = 3) {
 
     if (response.status === 429 || response.status === 503) {
       if (i < retries) {
-        await new Promise(r => setTimeout(r, (i + 1) * 5000));
+        await new Promise(r => setTimeout(r, (i + 1) * 4000));
         continue;
       }
       throw new Error("RATE_LIMIT");
@@ -110,10 +103,6 @@ async function callGemini(prompt, maxTokens = 450, retries = 3) {
 
     if (!response.ok) {
       const msg = data?.error?.message || "";
-      if (msg.includes("high demand") && i < retries) {
-        await new Promise(r => setTimeout(r, (i + 1) * 5000));
-        continue;
-      }
       throw new Error(msg || JSON.stringify(data));
     }
 
@@ -122,7 +111,7 @@ async function callGemini(prompt, maxTokens = 450, retries = 3) {
 }
 
 /* ================================
-   🔗 URL → ТЕКСТ (Jina Reader)
+   🔗 URL → ТЕКСТ
 ================================= */
 async function fetchTextFromUrl(url) {
   const response = await fetch(`https://r.jina.ai/${url}`, {
@@ -136,13 +125,13 @@ async function fetchTextFromUrl(url) {
 
   const text = await response.text();
 
-  if (!text || text.length < 100) throw new Error("Стаття порожня або недоступна");
+  if (!text || text.length < 100) throw new Error("Стаття порожня");
 
-  return text.slice(0, 8000);
+  return text.slice(0, 10000);
 }
 
 /* ================================
-   🔗 API: URL → ТЕКСТ
+   🔗 API: URL → TEXT
 ================================= */
 app.post("/api/fetch-url", async (req, res) => {
   const { url } = req.body;
@@ -160,34 +149,40 @@ app.post("/api/fetch-url", async (req, res) => {
 });
 
 /* ================================
-   🔥 API: ГЕНЕРАЦІЯ
+   🔥 API: SUMMARY
 ================================= */
 app.post("/api/test", async (req, res) => {
   let { text, mode, size } = req.body;
 
-  if (!text || text.trim().length < 30) {
+  if (!text || text.trim().length < 50) {
     return res.json({ result: "⚠️ Текст занадто короткий." });
   }
 
   text = cleanText(text);
 
-  const style = styles[mode] || styles.neutral;
-  const { label, maxTokens } = sizes[size] || sizes.medium;
+  const style = styles[mode] || styles.summary;
+  const { maxTokens } = sizes[size] || sizes.medium;
 
   try {
     const prompt = `
 ${style}
 
-ОБСЯГ: напиши СТРОГО ${label} символів. Завершуй думку повністю.
-ФОРМАТ: розбий текст на 2-3 абзаци через подвійний перенос рядка. Не пиши суцільним блоком.
+ЗАВДАННЯ:
+Зроби щільне інформативне резюме тексту.
 
-Спочатку очисти вхідний текст — видали:
-- рекламу, банери, заклики підписатися або поширити
-- фрази: "раніше писали", "як повідомляє", "за даними", "джерело", "читайте також"
-- посилання, згадки сайтів, технічне сміття
+ПРАВИЛА:
+- збережи всі ключові факти, цифри та висновки
+- не спрощуй зміст
+- не викидай важливе
 
-Потім напиши фінальний текст.
-ТІЛЬКИ результат. Жодних пояснень, коментарів, заголовків.
+ІГНОРУЙ:
+- рекламу
+- "читайте також"
+- джерела і посилання
+
+РЕЗУЛЬТАТ:
+- список ключових фактів
+- читається за 30 секунд
 
 Текст:
 ${text}
@@ -196,17 +191,17 @@ ${text}
     const result = await callGemini(prompt, maxTokens);
 
     if (!result) {
-      return res.json({ result: "⚠️ Модель не повернула результат." });
+      return res.json({ result: "⚠️ Немає результату" });
     }
 
     res.json({ result });
 
   } catch (err) {
     if (err.message === "RATE_LIMIT") {
-      return res.json({ result: "⚠️ Ліміт Gemini вичерпано. Спробуй через 20–30 секунд." });
+      return res.json({ result: "⚠️ Ліміт. Спробуй пізніше." });
     }
-    console.error("Error:", err.message);
-    res.json({ result: "❌ Помилка: " + err.message });
+    console.error(err.message);
+    res.json({ result: "❌ " + err.message });
   }
 });
 
