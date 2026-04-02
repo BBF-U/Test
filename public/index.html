@@ -34,6 +34,7 @@ textarea {
   border: 1px solid #ddd;
   padding: 12px;
   resize: none;
+  overflow: hidden;
 }
 
 .counter {
@@ -140,17 +141,25 @@ const counterInput = document.getElementById("counterInput");
 const counterOutput = document.getElementById("counterOutput");
 
 /* ================================
-   🧹 ОЧИСТКА ВИХОДУ (прибираємо *)
+   AUTO RESIZE
+================================= */
+function autoResize(el) {
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
+}
+
+/* ================================
+   CLEAN OUTPUT
 ================================= */
 function cleanOutput(text) {
   return text
-    .replace(/^\*\s*/gm, "")
+    .replace(/^\s*[-*•]\s+/gm, "") // прибирає -, *, •
     .replace(/\*\*/g, "")
     .trim();
 }
 
 /* ================================
-   📊 ЛІЧИЛЬНИКИ
+   COUNTERS
 ================================= */
 function updateInputCounter() {
   counterInput.innerText = input.value.length + " символів";
@@ -163,9 +172,15 @@ function updateOutputCounter() {
 /* ================================
    EVENTS
 ================================= */
-input.addEventListener("input", updateInputCounter);
+input.addEventListener("input", () => {
+  updateInputCounter();
+  autoResize(input);
+});
 
-output.addEventListener("input", updateOutputCounter);
+output.addEventListener("input", () => {
+  updateOutputCounter();
+  autoResize(output);
+});
 
 /* ================================
    MODE / SIZE
@@ -199,13 +214,12 @@ async function send(isRetry = false) {
 
   output.value = "⏳ Генеруємо...";
   updateOutputCounter();
+  autoResize(output);
 
   try {
     const res = await fetch("/api/test", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         text: isRetry ? lastText : input.value,
         mode: isRetry ? lastMode : mode,
@@ -215,13 +229,17 @@ async function send(isRetry = false) {
 
     const data = await res.json();
 
-    output.value = cleanOutput(data.result);
+    const cleaned = cleanOutput(data.result);
+    output.value = cleaned;
+
     updateOutputCounter();
+    autoResize(output);
 
     document.getElementById("retryBtn").disabled = false;
 
   } catch {
     output.value = "❌ Помилка";
+    updateOutputCounter();
   }
 }
 
@@ -233,21 +251,18 @@ function retry() {
 }
 
 /* ================================
-   STOP
-================================= */
-function stopGen() {}
-
-/* ================================
    CLEAR
 ================================= */
 function clearInput() {
   input.value = "";
   updateInputCounter();
+  autoResize(input);
 }
 
 function clearOutput() {
   output.value = "";
   updateOutputCounter();
+  autoResize(output);
 }
 
 /* ================================
@@ -265,6 +280,8 @@ setMode("neutral");
 setSize("medium");
 updateInputCounter();
 updateOutputCounter();
+autoResize(input);
+autoResize(output);
 </script>
 
 </body>
