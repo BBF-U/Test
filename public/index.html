@@ -79,10 +79,10 @@ button {
   padding: 8px 14px;
   cursor: pointer;
   background: white;
+  transition: 0.2s;
 }
 
 .primary { background: #ff9f43; color: white; border: none; }
-.stop { background: #ff4d4d; color: white; border: none; }
 
 .active {
   background: #ff9f43 !important;
@@ -96,23 +96,18 @@ button {
   margin-top: 10px;
 }
 
-/* 🔥 COPY BUTTON */
+/* ✅ COPY BUTTON */
 #copyBtn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border-radius: 10px;
-  border: 1px solid #ddd;
-  padding: 8px 14px;
-  cursor: pointer;
-  background: white;
-  transition: all 0.2s ease;
 }
 
+/* 🔥 ЗЕЛЕНИЙ СТАН */
 #copyBtn.copied {
-  background: #e6f7ec;
-  border-color: #34c759;
-  color: #1e7e34;
+  background: #34c759 !important;
+  border-color: #34c759 !important;
+  color: white !important;
 }
 </style>
 </head>
@@ -147,7 +142,7 @@ button {
 
 <div class="card">
   <div class="row">
-    <button id="btn" class="primary" onclick="send()">ЗРОБИТИ РИБУ</button>
+    <button class="primary" onclick="send()">ЗРОБИТИ РИБУ</button>
   </div>
 </div>
 
@@ -185,10 +180,6 @@ const counterOutput = document.getElementById("counterOutput");
 function autoResizeOutput() {
   output.style.height = "auto";
   output.style.height = output.scrollHeight + "px";
-}
-
-function cleanOutput(text) {
-  return text.replace(/^\s*[-*•]\s+/gm, "").replace(/\*\*/g, "").trim();
 }
 
 function updateInputCounter() {
@@ -248,8 +239,7 @@ async function send(isRetry = false) {
 
     const data = await res.json();
 
-    output.value = cleanOutput(data.result);
-
+    output.value = data.result || "";
     updateOutputCounter();
     autoResizeOutput();
 
@@ -276,12 +266,18 @@ function clearOutput() {
   autoResizeOutput();
 }
 
+/* ✅ FIXED COPY */
 function copyOutput() {
   if (!output.value) return;
 
   const btn = document.getElementById("copyBtn");
 
-  navigator.clipboard.writeText(output.value);
+  try {
+    navigator.clipboard.writeText(output.value);
+  } catch {
+    output.select();
+    document.execCommand("copy");
+  }
 
   btn.classList.add("copied");
   btn.querySelector(".text").textContent = "Скопійовано";
@@ -299,10 +295,6 @@ setSize("medium");
 updateInputCounter();
 updateOutputCounter();
 autoResizeOutput();
-
-setInterval(() => {
-  fetch("/ping").catch(() => {});
-}, 4 * 60 * 1000);
 </script>
 
 </body>
