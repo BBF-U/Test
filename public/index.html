@@ -307,6 +307,11 @@ setSize("medium");
 updateInputCounter();
 updateOutputCounter();
 autoResizeOutput();
+
+/* 🔥 KEEP-ALIVE через браузер */
+setInterval(() => {
+  fetch("/ping").catch(() => {});
+}, 4 * 60 * 1000);
 </script>
 
 </body>
