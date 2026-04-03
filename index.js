@@ -23,14 +23,14 @@ function cleanText(t) {
 ================================= */
 function cleanResult(t) {
   return t
-    .replace(/^[\-\*\•]\s+/gm, "")     // прибрати списки
-    .replace(/\*\*/g, "")              // прибрати markdown **
-    .replace(/\n{3,}/g, "\n\n")        // норм абзаци
+    .replace(/^[\-\*\•]\s+/gm, "")
+    .replace(/\*\*/g, "")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
 /* ================================
-   🎯 СТИЛІ = РЕЗЮМЕ
+   🎯 СТИЛІ
 ================================= */
 const styles = {
   telegram: `
@@ -40,11 +40,15 @@ const styles = {
 - 2–3 короткі абзаци
 - Суцільний текст без списків та без Markdown
 
+КРИТИЧНО ВАЖЛИВО:
+- Усі числа, дати, роки, відсотки — копіюй ДОСЛІВНО з оригіналу
+- Якщо в тексті 2030 → пиши 2030, НЕ 2025
+- Якщо закон 4670-IX → пиши 4670-IX, НЕ скорочуй
+- Краще залиш число ніж перефразуй
+
 ПРАВИЛА:
-- Використовуй оригінальні фрази та формулювання
-- Усі числа, дати та ціни копіюй з оригіналу без жодних змін
-- Видаляй другорядну інформацію, залишаючи головну суть
-- Пиши від першої особи (наприклад: "Я проаналізував...", "Помітив, що...")
+- Пиши від першої особи
+- Видаляй другорядне, залишай суть і факти
 `.trim(),
 
   neutral: `
@@ -52,28 +56,36 @@ const styles = {
 
 ФОРМАТ:
 - 5–8 речень суцільним текстом
-- Без списків, без крапок на початку рядків, без Markdown
+- Без списків, без крапок, без Markdown
+
+КРИТИЧНО ВАЖЛИВО:
+- Усі числа, дати, роки, відсотки — копіюй ДОСЛІВНО з оригіналу
+- Якщо в тексті 2030 → пиши 2030, НЕ 2025
+- Якщо закон 4670-IX → пиши 4670-IX, НЕ скорочуй
+- Краще залиш число ніж перефразуй
 
 ПРАВИЛА:
-- Залиш тільки ключові факти та статистику
-- Усі цифри, відсотки та роки перенось у резюме в їх оригінальному вигляді
-- Використовуй речення або частини речень з початкового тексту
-- Уникай будь-яких власних інтерпретацій чи вигадок
+- Тільки факти з тексту
+- Жодних власних інтерпретацій
 `.trim(),
 
-journal: `
+  journal: `
 Зроби стисле новинне резюме тексту.
 
 ФОРМАТ:
 - Перше речення: головна новина (лід)
 - Далі: 1–2 абзаци з деталями
-- Тільки суцільний текст, без списків, без Markdown та без заголовків
+- Тільки суцільний текст, без списків, без Markdown
+
+КРИТИЧНО ВАЖЛИВО:
+- Усі числа, дати, роки, відсотки — копіюй ДОСЛІВНО з оригіналу
+- Якщо в тексті 2030 → пиши 2030, НЕ 2025
+- Якщо закон 4670-IX → пиши 4670-IX, НЕ скорочуй
+- Краще залиш число ніж перефразуй
 
 ПРАВИЛА:
-- Використовуй оригінальні формулювання та факти з тексту
-- Усі числа, відсотки, суми та дати копіюй БЕЗ змін
-- Видаляй зайві епітети, залишаючи лише конкретну інформацію
-- Суворо дотримуйся фактології оригіналу: нічого не додавай від себе
+- Суворо дотримуйся фактів оригіналу
+- Нічого не додавай від себе
 `.trim()
 };
 
@@ -81,7 +93,7 @@ journal: `
    📏 ОБСЯГ
 ================================= */
 const sizes = {
-  short:  { instruction: "Коротке, але завершене резюме.", maxTokens: 500 },
+  short:  { instruction: "Коротке, але завершене резюме.", maxTokens: 500  },
   medium: { instruction: "Повне резюме без втрати важливих фактів.", maxTokens: 1000 },
   long:   { instruction: "Максимально повне резюме з усіма фактами.", maxTokens: 1500 }
 };
@@ -89,36 +101,51 @@ const sizes = {
 /* ================================
    🤖 GEMINI
 ================================= */
-async function callGemini(prompt, maxTokens = 1200) {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-  generationConfig: {
-    maxOutputTokens: maxTokens,
-    temperature: 0.35,
-    topP: 0.75
-  },
-  safetySettings: [
-    { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-    { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-    { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-    { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
-  ]
-})
+async function callGemini(prompt, maxTokens = 1000, retries = 3) {
+  for (let i = 0; i <= retries; i++) {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            maxOutputTokens: maxTokens,
+            temperature: 0.15,
+            topP: 0.75
+          },
+          safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT",        threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH",       threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+          ]
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (response.status === 429 || response.status === 503) {
+      if (i < retries) {
+        await new Promise(r => setTimeout(r, (i + 1) * 5000));
+        continue;
+      }
+      throw new Error("RATE_LIMIT");
     }
-  );
 
-  const data = await response.json();
+    if (!response.ok) {
+      const msg = data?.error?.message || "";
+      if (msg.includes("high demand") && i < retries) {
+        await new Promise(r => setTimeout(r, (i + 1) * 5000));
+        continue;
+      }
+      throw new Error(msg || "API error");
+    }
 
-  if (!response.ok) {
-    throw new Error(data?.error?.message || "API error");
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
   }
-
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
 }
 
 /* ================================
@@ -140,39 +167,35 @@ app.post("/api/test", async (req, res) => {
     const prompt = `
 ${style}
 
-ОБСЯГ:
-${instruction}
+ОБСЯГ: ${instruction}
 
 ЗАВДАННЯ:
-Зроби стисле резюме наданого тексту. Твоя мета — скоротити обсяг, зберігши всі фактичні дані.
+Зроби стисле резюме наданого тексту. Скороти обсяг, зберігши всі фактичні дані.
 
-ПРАВИЛА:
-1. Зберігай усі цифри, дати, назви міст та відсотки в їх оригінальному вигляді.
-2. Використовуй прямі цитати або фрагменти речень з оригіналу.
-3. Не перефразовуй числових показників — просто копіюй їх як є.
-4. Результат має бути у формі звичайного тексту (абзаци), без списків та без використання символів Markdown (без зірочок, решіток тощо).
-5. Якщо факт містить число, копіюй все речення повністю. Краще вийти за ліміт речень, ніж видалити число.
+ЖОРСТКІ ПРАВИЛА:
+1. Числа, роки, дати, відсотки, суми — переноси ДОСЛІВНО як у тексті.
+2. Якщо в тексті "2030" — пиши "2030". Якщо "4670-IX" — пиши "4670-IX".
+3. Не перефразовуй числові показники — просто копіюй їх як є.
+4. Звичайний текст абзацами, без списків, без Markdown.
+5. Якщо факт містить число — копіюй ціле речення. Краще перевищити ліміт, ніж втратити число.
 
-ПРИКЛАД (як треба робити):
-Вхід: Ціна квадратного метра в Одесі зросла на 5% і тепер становить $1200 за кв.м.
-Резюме: Ціна в Одесі зросла на 5% і становить $1200 за кв.м.
-
-ВАЖЛИВО:
-- не обривай текст
-- якщо не вміщається — скорочуй формулювання, але не втрачай факти
-- відповідь має бути завершеною
+ПРИКЛАД:
+Вхід: Ціна зросла на 5% і становить $1200 за кв.м.
+Резюме: Ціна зросла на 5% і становить $1200 за кв.м.
 
 Текст:
 ${text}
 `.trim();
 
     let result = await callGemini(prompt, maxTokens);
-
-    result = cleanResult(result); // 🔥 ось це ключ
+    result = cleanResult(result);
 
     res.json({ result });
 
   } catch (err) {
+    if (err.message === "RATE_LIMIT") {
+      return res.json({ result: "⚠️ Ліміт. Спробуй через 20–30 сек." });
+    }
     console.error(err.message);
     res.json({ result: "❌ Помилка: " + err.message });
   }
@@ -186,7 +209,7 @@ app.get("/", (req, res) => {
 });
 
 /* ================================
-   🔥 KEEP-ALIVE ENDPOINT
+   🔥 KEEP-ALIVE
 ================================= */
 app.get("/ping", (req, res) => {
   res.send("ok");
