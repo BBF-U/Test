@@ -21,7 +21,6 @@ body {
   padding: 12px;
 }
 
-/* ✅ ШАПКА */
 h1 {
   text-align: center;
   font-size: 28px;
@@ -41,7 +40,6 @@ h1 {
   margin-bottom: 20px;
 }
 
-/* 🔥 БАЗА textarea */
 textarea {
   width: 100%;
   min-height: 120px;
@@ -51,19 +49,16 @@ textarea {
   resize: none;
 }
 
-/* 🔥 INPUT — ФІКС */
 #input {
   height: 140px;
   max-height: 140px;
   overflow-y: auto;
 }
 
-/* 🔥 OUTPUT — АДАПТИВ */
 #output {
   overflow: hidden;
 }
 
-/* ЛІЧИЛЬНИК */
 .counter {
   font-size: 12px;
   text-align: right;
@@ -100,6 +95,25 @@ button {
   justify-content: space-between;
   margin-top: 10px;
 }
+
+/* 🔥 COPY BUTTON */
+#copyBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  padding: 8px 14px;
+  cursor: pointer;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+#copyBtn.copied {
+  background: #e6f7ec;
+  border-color: #34c759;
+  color: #1e7e34;
+}
 </style>
 </head>
 
@@ -109,17 +123,14 @@ button {
 <h1>РИБА 🐟</h1>
 <div class="subtitle">AI генератор резюме</div>
 
-<!-- INPUT -->
 <div class="card">
   <div class="counter" id="counterInput">0 символів</div>
   <textarea id="input" placeholder="Встав текст..."></textarea>
-
   <div class="actions">
     <button onclick="clearInput()">Очистити</button>
   </div>
 </div>
 
-<!-- MODES -->
 <div class="card">
   <div class="row modes">
     <button onclick="setMode('telegram')" id="telegram">Telegram</button>
@@ -134,7 +145,6 @@ button {
   </div>
 </div>
 
-<!-- ACTION -->
 <div class="card">
   <div class="row">
     <button id="btn" class="primary" onclick="send()">ЗРОБИТИ РИБУ</button>
@@ -142,7 +152,6 @@ button {
   </div>
 </div>
 
-<!-- OUTPUT -->
 <div class="card">
   <div class="counter" id="counterOutput">0 символів</div>
   <textarea id="output" placeholder="Тут буде результат..."></textarea>
@@ -152,7 +161,11 @@ button {
       <button onclick="clearOutput()">Очистити</button>
       <button id="retryBtn" onclick="retry()" disabled>🔄 Ще раз</button>
     </div>
-    <button onclick="copyOutput()">📋 Скопіювати</button>
+
+    <button id="copyBtn" onclick="copyOutput()">
+      <span class="icon">📋</span>
+      <span class="text">Скопіювати</span>
+    </button>
   </div>
 </div>
 
@@ -170,27 +183,15 @@ const output = document.getElementById("output");
 const counterInput = document.getElementById("counterInput");
 const counterOutput = document.getElementById("counterOutput");
 
-/* ================================
-   AUTO RESIZE (тільки output)
-================================= */
 function autoResizeOutput() {
   output.style.height = "auto";
   output.style.height = output.scrollHeight + "px";
 }
 
-/* ================================
-   CLEAN OUTPUT
-================================= */
 function cleanOutput(text) {
-  return text
-    .replace(/^\s*[-*•]\s+/gm, "")
-    .replace(/\*\*/g, "")
-    .trim();
+  return text.replace(/^\s*[-*•]\s+/gm, "").replace(/\*\*/g, "").trim();
 }
 
-/* ================================
-   COUNTERS
-================================= */
 function updateInputCounter() {
   counterInput.innerText = input.value.length + " символів";
 }
@@ -199,9 +200,6 @@ function updateOutputCounter() {
   counterOutput.innerText = output.value.length + " символів";
 }
 
-/* ================================
-   EVENTS
-================================= */
 input.addEventListener("input", updateInputCounter);
 
 output.addEventListener("input", () => {
@@ -209,9 +207,6 @@ output.addEventListener("input", () => {
   autoResizeOutput();
 });
 
-/* ================================
-   MODE / SIZE
-================================= */
 function setMode(m) {
   mode = m;
   document.querySelectorAll(".modes button").forEach(b => b.classList.remove("active"));
@@ -224,9 +219,6 @@ function setSize(s) {
   document.getElementById(s).classList.add("active");
 }
 
-/* ================================
-   SEND
-================================= */
 async function send(isRetry = false) {
   if (!input.value.trim()) {
     output.value = "⚠️ Встав текст";
@@ -270,16 +262,10 @@ async function send(isRetry = false) {
   }
 }
 
-/* ================================
-   RETRY
-================================= */
 function retry() {
   if (lastText) send(true);
 }
 
-/* ================================
-   CLEAR
-================================= */
 function clearInput() {
   input.value = "";
   updateInputCounter();
@@ -291,24 +277,30 @@ function clearOutput() {
   autoResizeOutput();
 }
 
-/* ================================
-   COPY
-================================= */
 function copyOutput() {
   if (!output.value) return;
+
+  const btn = document.getElementById("copyBtn");
+
   navigator.clipboard.writeText(output.value);
+
+  btn.classList.add("copied");
+  btn.querySelector(".text").textContent = "Скопійовано";
+  btn.querySelector(".icon").textContent = "✔";
+
+  setTimeout(() => {
+    btn.classList.remove("copied");
+    btn.querySelector(".text").textContent = "Скопіювати";
+    btn.querySelector(".icon").textContent = "📋";
+  }, 2000);
 }
 
-/* ================================
-   INIT
-================================= */
 setMode("neutral");
 setSize("medium");
 updateInputCounter();
 updateOutputCounter();
 autoResizeOutput();
 
-/* 🔥 KEEP-ALIVE через браузер */
 setInterval(() => {
   fetch("/ping").catch(() => {});
 }, 4 * 60 * 1000);
