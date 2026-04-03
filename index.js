@@ -188,6 +188,8 @@ ${text}
 `.trim();
 
     let result = await callGemini(prompt, maxTokens);
+    console.log("=== GEMINI RESULT ===");
+    console.log(result.substring(0, 500));
     result = cleanResult(result);
 
     res.json({ result });
