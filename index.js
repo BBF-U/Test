@@ -13,9 +13,11 @@ function cleanText(t) {
   return t
     .replace(/\(https?:\/\/[^\s]+\)/g, "")
     .replace(/https?:\/\/[^\s]+/g, "")
-    .replace(/[\p{Emoji}]/gu, "")
+    .replace(/[\u{1F300}-\u{1F9FF}]/gu, "")
+    .replace(/[\u{2600}-\u{27BF}]/gu, "")
     .replace(/\n{2,}/g, "\n")
     .trim();
+}
 }
 
 /* ================================
