@@ -37,6 +37,13 @@ textarea {
   overflow: hidden;
 }
 
+  /* 🔥 ФІКСИМО ТІЛЬКИ ВЕРХНЄ ПОЛЕ */
+#input {
+  height: 140px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
 .counter {
   font-size: 12px;
   text-align: right;
@@ -174,7 +181,6 @@ function updateOutputCounter() {
 ================================= */
 input.addEventListener("input", () => {
   updateInputCounter();
-  autoResize(input);
 });
 
 output.addEventListener("input", () => {
