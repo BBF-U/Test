@@ -99,8 +99,8 @@ async function callGemini(prompt, maxTokens = 1200) {
         contents: [{ parts: [{ text: prompt }] }],
   generationConfig: {
     maxOutputTokens: maxTokens,
-    temperature: 0.29,
-    topP: 0.9
+    temperature: 0.35,
+    topP: 0.75
   },
   safetySettings: [
     { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
