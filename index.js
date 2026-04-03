@@ -81,17 +81,17 @@ journal: `
    📏 ОБСЯГ
 ================================= */
 const sizes = {
-  short:  { instruction: "Обери 3 найважливіші факти з цифрами.", maxTokens: 250 },
-  medium: { instruction: "Обери 6 найважливіших фактів з цифрами.", maxTokens: 500 },
-  long:   { instruction: "Витягни всі згадані факти з цифрами та статистикою.", maxTokens: 900 }
+  short:  { instruction: "Обери 3 найважливіші факти з цифрами.", maxTokens: 500 },
+  medium: { instruction: "Обери 6 найважливіших фактів з цифрами.", maxTokens: 1000 },
+  long:   { instruction: "Витягни всі згадані факти з цифрами та статистикою.", maxTokens: 1500 }
 };
 
 /* ================================
    🤖 GEMINI
 ================================= */
-async function callGemini(prompt, maxTokens = 400) {
+async function callGemini(prompt, maxTokens = 1200) {
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -155,6 +155,11 @@ ${instruction}
 ПРИКЛАД (як треба робити):
 Вхід: Ціна квадратного метра в Одесі зросла на 5% і тепер становить $1200 за кв.м.
 Резюме: Ціна в Одесі зросла на 5% і становить $1200 за кв.м.
+
+ВАЖЛИВО:
+- не обривай текст
+- якщо не вміщається — скорочуй формулювання, але не втрачай факти
+- відповідь має бути завершеною
 
 Текст:
 ${text}
