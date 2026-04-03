@@ -81,9 +81,9 @@ journal: `
    📏 ОБСЯГ
 ================================= */
 const sizes = {
-  short:  { instruction: "Обери 3 найважливіші факти з цифрами.", maxTokens: 500 },
-  medium: { instruction: "Обери 6 найважливіших фактів з цифрами.", maxTokens: 1000 },
-  long:   { instruction: "Витягни всі згадані факти з цифрами та статистикою.", maxTokens: 1500 }
+  short:  { instruction: "Коротке, але завершене резюме.", maxTokens: 500 },
+  medium: { instruction: "Повне резюме без втрати важливих фактів.", maxTokens: 1000 },
+  long:   { instruction: "Максимально повне резюме з усіма фактами.", maxTokens: 1500 }
 };
 
 /* ================================
