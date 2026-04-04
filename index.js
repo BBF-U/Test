@@ -15,7 +15,7 @@ function cleanText(t) {
     .replace(/https?:\/\/[^\s]+/g, "")
     .replace(/[\u{1F300}-\u{1F9FF}]/gu, "")
     .replace(/[\u{2600}-\u{27BF}]/gu, "")
-    .replace(/\n{2,}/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
