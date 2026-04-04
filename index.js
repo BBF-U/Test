@@ -97,9 +97,9 @@ const styles = {
    📏 ОБСЯГ
 ================================= */
 const sizes = {
-  short:  { instruction: "Коротке, але завершене резюме.", maxTokens: 500  },
-  medium: { instruction: "Повне резюме без втрати важливих фактів.", maxTokens: 1000 },
-  long:   { instruction: "Максимально повне резюме з усіма фактами.", maxTokens: 1500 }
+  short:  { instruction: "Коротке, але завершене резюме.", maxTokens: 300  },
+  medium: { instruction: "Повне резюме без втрати важливих фактів.", maxTokens: 800 },
+  long:   { instruction: "Максимально повне резюме з усіма фактами.", maxTokens: 1250 }
 };
 
 /* ================================
