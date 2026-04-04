@@ -95,7 +95,7 @@ const styles = {
    📏 ОБСЯГ
 ================================= */
 const sizes = {
-  short:  { instruction: "Коротке - одне речення, але завершене резюме.", maxTokens: 300  },
+  short:  { instruction: "Дуже стисло - максімум одне речення, але завершене резюме.", maxTokens: 300  },
   medium: { instruction: "Повне резюме без втрати важливих фактів.", maxTokens: 800 },
   long:   { instruction: "Максимально повне резюме з усіма фактами.", maxTokens: 1250 }
 };
@@ -103,7 +103,7 @@ const sizes = {
 /* ================================
    🤖 GEMINI
 ================================= */
-async function callGemini(prompt, maxTokens = 1000, retries = 3) {
+async function callGemini(prompt, maxTokens = 800, retries = 3) {
   for (let i = 0; i <= retries; i++) {
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`,
