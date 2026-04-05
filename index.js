@@ -210,11 +210,40 @@ ${text}
 `.trim();
 
     let result = await callGemini(prompt, maxTokens);
-    console.log("=== GEMINI RESULT ===");
-    console.log(result.substring(0, 500));
-    result = cleanResult(result);
 
-    res.json({ result });
+console.log("=== GEMINI RESULT ===");
+console.log(result.substring(0, 500));
+
+result = cleanResult(result);
+
+/* ================================
+   🔧 КОНТРОЛЬ ОБСЯГУ
+================================= */
+
+function countSentences(text) {
+  return text.split(/[.!?]+/).filter(s => s.trim().length > 0).length;
+}
+
+function trimToSentences(text, max) {
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  return sentences.slice(0, max).join(". ") + ".";
+}
+
+if (size === "short" && countSentences(result) > 3) {
+  result = trimToSentences(result, 3);
+}
+
+if (size === "medium" && countSentences(result) > 6) {
+  result = trimToSentences(result, 6);
+}
+
+if (size === "long" && countSentences(result) > 10) {
+  result = trimToSentences(result, 10);
+}
+
+/* ================================ */
+
+res.json({ result });
 
   } catch (err) {
     if (err.message === "RATE_LIMIT") {
