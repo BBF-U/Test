@@ -295,6 +295,15 @@ setSize("medium");
 updateInputCounter();
 updateOutputCounter();
 autoResizeOutput();
+// Отримуємо текст від Inoreader
+(function() {
+  const incoming = localStorage.getItem('ryba_incoming_text');
+  if (incoming) {
+    input.value = incoming;
+    updateInputCounter();
+    localStorage.removeItem('ryba_incoming_text'); // очищаємо після використання
+  }
+})();
 </script>
 
 </body>
