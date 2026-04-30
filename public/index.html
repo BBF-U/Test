@@ -289,12 +289,14 @@ function copyOutput() {
 
 function cleanIncomingText(text) {
   return text
+    // Назви джерел
     .replace(/^.*ITC\.ua.*$/gim, '')
     .replace(/^.*ITC\.UA.*$/gim, '')
     .replace(/^.*MC Today.*$/gim, '')
     .replace(/^.*mezha\.media.*$/gim, '')
     .replace(/^.*ain\.ua.*$/gim, '')
     .replace(/^.*dev\.ua.*$/gim, '')
+    // Автор і дата
     .replace(/^від .*$/gm, '')
     .replace(/^от .*$/gm, '')
     .replace(/^Текст:.*$/gm, '')
@@ -302,16 +304,30 @@ function cleanIncomingText(text) {
     .replace(/^Теги:.*$/gm, '')
     .replace(/^\d{1,2}:\d{2}.*$/gm, '')
     .replace(/^\d{1,2} [а-яА-Я]+ \d{4}.*$/gm, '')
+    // Ім'я автора і посада (рядок з двох слів з великої літери + посада)
+    .replace(/^[А-ЯІЇЄ][а-яіїє]+ [А-ЯІЇЄ][а-яіїє]+\s+[А-Яа-яіїєІЇЄ ]+$/gm, '')
+    // Системні повідомлення
     .replace(/You are overusing.*?listen/gs, '')
     .replace(/Understood/g, '')
     .replace(/Создать правило/g, '')
     .replace(/Читати у Telegram/g, '')
+    // Футер
     .replace(/The post .* first appeared on .*\./g, '')
     .replace(/Джерело:.*$/gm, '')
     .replace(/Источник:.*$/gm, '')
     .replace(/Знайшли помилку.*$/gm, '')
     .replace(/виділіть її та натисніть.*$/gm, '')
+    .replace(/^Реклама.*$/gm, '')
+    .replace(/^Поділитися.*$/gm, '')
+    .replace(/Реклама:/g, '')
+    // Теги в кінці (короткі рядки з одного-двох слів підряд)
+    .replace(/^([А-ЯІЇЄа-яіїєA-Za-z]+ ?){1,3}$/gm, (match) => {
+      // Залишаємо тільки якщо рядок довший за 40 символів
+      return match.trim().length < 40 ? '' : match;
+    })
+    // Числа-лічильники
     .replace(/^\s*\d+\s*$/gm, '')
+    // Зайві порожні рядки
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
