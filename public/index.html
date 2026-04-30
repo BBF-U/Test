@@ -96,14 +96,12 @@ button {
   margin-top: 10px;
 }
 
-/* ✅ COPY BUTTON */
 #copyBtn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
 }
 
-/* 🔥 ЗЕЛЕНИЙ СТАН */
 #copyBtn.copied {
   background: #34c759 !important;
   border-color: #34c759 !important;
@@ -266,7 +264,6 @@ function clearOutput() {
   autoResizeOutput();
 }
 
-/* ✅ FIXED COPY */
 function copyOutput() {
   if (!output.value) return;
 
@@ -290,20 +287,22 @@ function copyOutput() {
   }, 2000);
 }
 
+// Отримуємо текст від Inoreader через URL параметр
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const incoming = params.get('text');
+  if (incoming) {
+    input.value = incoming;
+    updateInputCounter();
+    window.history.replaceState({}, '', '/');
+  }
+})();
+
 setMode("neutral");
 setSize("medium");
 updateInputCounter();
 updateOutputCounter();
 autoResizeOutput();
-// Отримуємо текст від Inoreader
-(function() {
-  const incoming = localStorage.getItem('ryba_incoming_text');
-  if (incoming) {
-    input.value = incoming;
-    updateInputCounter();
-    localStorage.removeItem('ryba_incoming_text'); // очищаємо після використання
-  }
-})();
 </script>
 
 </body>
