@@ -287,12 +287,41 @@ function copyOutput() {
   }, 2000);
 }
 
+function cleanIncomingText(text) {
+  return text
+    .replace(/^.*ITC\.ua.*$/gim, '')
+    .replace(/^.*ITC\.UA.*$/gim, '')
+    .replace(/^.*MC Today.*$/gim, '')
+    .replace(/^.*mezha\.media.*$/gim, '')
+    .replace(/^.*ain\.ua.*$/gim, '')
+    .replace(/^.*dev\.ua.*$/gim, '')
+    .replace(/^від .*$/gm, '')
+    .replace(/^от .*$/gm, '')
+    .replace(/^Текст:.*$/gm, '')
+    .replace(/^Фото:.*$/gm, '')
+    .replace(/^Теги:.*$/gm, '')
+    .replace(/^\d{1,2}:\d{2}.*$/gm, '')
+    .replace(/^\d{1,2} [а-яА-Я]+ \d{4}.*$/gm, '')
+    .replace(/You are overusing.*?listen/gs, '')
+    .replace(/Understood/g, '')
+    .replace(/Создать правило/g, '')
+    .replace(/Читати у Telegram/g, '')
+    .replace(/The post .* first appeared on .*\./g, '')
+    .replace(/Джерело:.*$/gm, '')
+    .replace(/Источник:.*$/gm, '')
+    .replace(/Знайшли помилку.*$/gm, '')
+    .replace(/виділіть її та натисніть.*$/gm, '')
+    .replace(/^\s*\d+\s*$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 // Отримуємо текст від Inoreader через URL параметр
 (function() {
   const params = new URLSearchParams(window.location.search);
   const incoming = params.get('text');
   if (incoming) {
-    input.value = incoming;
+    input.value = cleanIncomingText(incoming);
     updateInputCounter();
     window.history.replaceState({}, '', '/');
   }
