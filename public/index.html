@@ -120,8 +120,11 @@ button {
   <div class="counter" id="counterInput">0 символів</div>
   <textarea id="input" placeholder="Встав текст..."></textarea>
   <div class="actions">
+  <div style="display:flex; gap:8px;">
     <button onclick="clearInput()">Очистити</button>
+    <button onclick="clearTrash()">🗑 Сміття</button>
   </div>
+</div>
 </div>
 
 <div class="card">
@@ -258,6 +261,18 @@ function clearInput() {
   updateInputCounter();
 }
 
+function clearTrash() {
+  input.value = "";
+
+  // очистити вставлений текст
+  localStorage.removeItem("ryba_text");
+
+  // очистити URL (якщо передавали через ?text=)
+  window.history.replaceState({}, document.title, window.location.pathname);
+
+  updateInputCounter();
+}
+  
 function clearOutput() {
   output.value = "";
   updateOutputCounter();
