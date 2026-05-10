@@ -406,9 +406,6 @@ function copyOutput() {
     navigator.clipboard.writeText(output.value);
 
   } catch {
-
-    output.select();
-    document.execCommand("copy");
   }
 
   btn.classList.add("copied");
@@ -429,6 +426,9 @@ function copyOutput() {
 /* ================================
    CHATGPT
 ================================= */
+/* ================================
+   CHATGPT
+================================= */
 async function openChatGPT() {
 
   const text = input.value.trim();
@@ -437,6 +437,9 @@ async function openChatGPT() {
     alert("Немає тексту");
     return;
   }
+
+  // 🔥 спочатку відкриваємо ChatGPT
+  const newTab = window.open("https://chatgpt.com", "_blank");
 
   const prompt =
 `Поясни і проаналізуй цей текст:
@@ -447,28 +450,13 @@ ${text}`;
 
   try {
 
-    // 🔥 створюємо приховане поле
-    const temp = document.createElement("textarea");
-
-    temp.value = prompt;
-
-    document.body.appendChild(temp);
-
-    temp.select();
-    temp.setSelectionRange(0, 999999);
-
-    // 🔥 старий стабільний copy
-    document.execCommand("copy");
-
-    document.body.removeChild(temp);
+    // 🔥 копіюємо текст
+    await navigator.clipboard.writeText(prompt);
 
     // 🔥 фідбек
     const old = btn.innerHTML;
 
     btn.innerHTML = "✔ Скопійовано";
-
-    // 🔥 відкриваємо ChatGPT
-    window.open("https://chatgpt.com", "_blank");
 
     setTimeout(() => {
       btn.innerHTML = old;
@@ -479,7 +467,6 @@ ${text}`;
     alert("Не вдалося скопіювати текст");
   }
 }
-
 /* ================================
    CLEAN INCOMING TEXT
 ================================= */
