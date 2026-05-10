@@ -6,11 +6,13 @@
 <title>РИБА 🐟</title>
 
 <style>
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
-  font-family: Inter, Arial;
+  font-family: Inter, Arial, sans-serif;
   background: #f7f8fc;
   color: #222;
 }
@@ -264,7 +266,7 @@ function setMode(m) {
 
   document
     .querySelectorAll(".modes button")
-    .forEach(b => b.classList.remove("active"));
+    .forEach(btn => btn.classList.remove("active"));
 
   document.getElementById(m).classList.add("active");
 }
@@ -275,7 +277,7 @@ function setSize(s) {
 
   document
     .querySelectorAll(".sizes button")
-    .forEach(b => b.classList.remove("active"));
+    .forEach(btn => btn.classList.remove("active"));
 
   document.getElementById(s).classList.add("active");
 }
@@ -294,7 +296,6 @@ async function send(isRetry = false) {
   }
 
   if (!isRetry) {
-
     lastText = input.value;
     lastMode = mode;
     lastSize = size;
@@ -331,7 +332,9 @@ async function send(isRetry = false) {
 
     document.getElementById("retryBtn").disabled = false;
 
-  } catch {
+  } catch (err) {
+
+    console.error(err);
 
     output.value = "❌ Помилка";
 
@@ -403,12 +406,21 @@ function copyOutput() {
 
   try {
 
-    navigator.clipboard.writeText(output.value);
+    const temp = document.createElement("textarea");
 
-  } catch {
+    temp.value = output.value;
 
-    output.select();
+    document.body.appendChild(temp);
+
+    temp.select();
+
     document.execCommand("copy");
+
+    document.body.removeChild(temp);
+
+  } catch (err) {
+
+    console.error(err);
   }
 
   btn.classList.add("copied");
@@ -429,7 +441,7 @@ function copyOutput() {
 /* ================================
    CHATGPT
 ================================= */
-async function openChatGPT() {
+function openChatGPT() {
 
   const text = input.value.trim();
 
@@ -447,23 +459,42 @@ ${text}`;
 
   try {
 
-    // копіюємо у буфер
-    await navigator.clipboard.writeText(prompt);
+    const temp = document.createElement("textarea");
 
-    // міняємо текст кнопки
-    const old = btn.innerHTML;
+    temp.value = prompt;
+
+    temp.style.position = "fixed";
+    temp.style.opacity = "0";
+    temp.style.pointerEvents = "none";
+
+    document.body.appendChild(temp);
+
+    temp.focus();
+    temp.select();
+
+    const success = document.execCommand("copy");
+
+    document.body.removeChild(temp);
+
+    if (!success) {
+      throw new Error("COPY_FAILED");
+    }
+
+    const oldText = btn.innerHTML;
 
     btn.innerHTML = "✔ Скопійовано";
 
-    // відкриваємо ChatGPT
-    window.open("https://chatgpt.com", "_blank");
-
-    // повертаємо кнопку
-    setTimeout(() => {
-      btn.innerHTML = old;
+    setTimeout(function () {
+      btn.innerHTML = oldText;
     }, 2000);
 
-  } catch {
+    setTimeout(function () {
+      window.open("https://chatgpt.com", "_blank");
+    }, 100);
+
+  } catch (err) {
+
+    console.error(err);
 
     alert("Не вдалося скопіювати текст");
   }
@@ -476,30 +507,30 @@ function cleanIncomingText(text) {
 
   return text
 
-    .replace(/^.*ITC\.ua.*$/gim, '')
-    .replace(/^.*MC Today.*$/gim, '')
-    .replace(/^.*mezha\.media.*$/gim, '')
-    .replace(/^.*ain\.ua.*$/gim, '')
-    .replace(/^.*dev\.ua.*$/gim, '')
+    .replace(/^.*ITC\.ua.*$/gim, "")
+    .replace(/^.*MC Today.*$/gim, "")
+    .replace(/^.*mezha\.media.*$/gim, "")
+    .replace(/^.*ain\.ua.*$/gim, "")
+    .replace(/^.*dev\.ua.*$/gim, "")
 
-    .replace(/^від .*$/gm, '')
-    .replace(/^от .*$/gm, '')
-    .replace(/^Текст:.*$/gm, '')
-    .replace(/^Фото:.*$/gm, '')
-    .replace(/^Теги:.*$/gm, '')
+    .replace(/^від .*$/gm, "")
+    .replace(/^от .*$/gm, "")
+    .replace(/^Текст:.*$/gm, "")
+    .replace(/^Фото:.*$/gm, "")
+    .replace(/^Теги:.*$/gm, "")
 
-    .replace(/^\d{1,2}:\d{2}.*$/gm, '')
-    .replace(/^\d{1,2} [а-яА-Я]+ \d{4}.*$/gm, '')
+    .replace(/^\d{1,2}:\d{2}.*$/gm, "")
+    .replace(/^\d{1,2} [а-яА-Я]+ \d{4}.*$/gm, "")
 
-    .replace(/Читати у Telegram/g, '')
+    .replace(/Читати у Telegram/g, "")
 
-    .replace(/^Реклама.*$/gm, '')
-    .replace(/^Поділитися.*$/gm, '')
+    .replace(/^Реклама.*$/gm, "")
+    .replace(/^Поділитися.*$/gm, "")
 
-    .replace(/Джерело:.*$/gm, '')
-    .replace(/Источник:.*$/gm, '')
+    .replace(/Джерело:.*$/gm, "")
+    .replace(/Источник:.*$/gm, "")
 
-    .replace(/\n{3,}/g, '\n\n')
+    .replace(/\n{3,}/g, "\n\n")
 
     .trim();
 }
@@ -519,7 +550,7 @@ function cleanIncomingText(text) {
 
     updateInputCounter();
 
-    window.history.replaceState({}, '', '/');
+    window.history.replaceState({}, "", "/");
   }
 
 })();
