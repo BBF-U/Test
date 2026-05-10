@@ -396,108 +396,59 @@ function clearTrash() {
 }
 
 /* ================================
-   COPY OUTPUT
+   COPY OUTPUT (Сучасний метод)
 ================================= */
-function copyOutput() {
+async function copyOutput() {
+    if (!output.value) return;
 
-  if (!output.value) return;
+    const btn = document.getElementById("copyBtn");
 
-  const btn = document.getElementById("copyBtn");
+    try {
+        await navigator.clipboard.writeText(output.value);
+        
+        btn.classList.add("copied");
+        btn.querySelector(".text").textContent = "Скопійовано";
+        btn.querySelector(".icon").textContent = "✔";
 
-  try {
-
-    const temp = document.createElement("textarea");
-
-    temp.value = output.value;
-
-    document.body.appendChild(temp);
-
-    temp.select();
-
-    document.execCommand("copy");
-
-    document.body.removeChild(temp);
-
-  } catch (err) {
-
-    console.error(err);
-  }
-
-  btn.classList.add("copied");
-
-  btn.querySelector(".text").textContent = "Скопійовано";
-  btn.querySelector(".icon").textContent = "✔";
-
-  setTimeout(() => {
-
-    btn.classList.remove("copied");
-
-    btn.querySelector(".text").textContent = "Скопіювати";
-    btn.querySelector(".icon").textContent = "📋";
-
-  }, 2000);
+        setTimeout(() => {
+            btn.classList.remove("copied");
+            btn.querySelector(".text").textContent = "Скопіювати";
+            btn.querySelector(".icon").textContent = "📋";
+        }, 2000);
+    } catch (err) {
+        console.error("Помилка копіювання:", err);
+    }
 }
 
 /* ================================
-   CHATGPT
+   CHATGPT (Фікс вставки)
 ================================= */
 async function openChatGPT() {
-
-  const text = input.value.trim();
-
-  if (!text) {
-    alert("Немає тексту");
-    return;
-  }
-
-  const prompt =
-`Поясни і проаналізуй цей текст:
-
-${text}`;
-
-  const btn = document.querySelector(".chatgpt");
-
-  try {
-
-    // 🔥 СТАВИМО В INPUT
-    input.focus();
-    input.select();
-
-    // 🔥 ПІДМІНЯЄМО ТЕКСТ
-    const oldValue = input.value;
-
-    input.value = prompt;
-
-    input.select();
-
-    // 🔥 COPY
-    const success = document.execCommand("copy");
-
-    // 🔥 ПОВЕРТАЄМО НАЗАД
-    input.value = oldValue;
-
-    if (!success) {
-      throw new Error("COPY_FAILED");
+    const text = input.value.trim();
+    if (!text) {
+        alert("Немає тексту");
+        return;
     }
 
-    // 🔥 feedback
-    const oldText = btn.innerHTML;
+    const prompt = `Поясни і проаналізуй цей текст:\n\n${text}`;
+    const btn = document.querySelector(".chatgpt");
 
-    btn.innerHTML = "✔ Скопійовано";
+    try {
+        // Копіюємо промпт у буфер обміну
+        await navigator.clipboard.writeText(prompt);
 
-    setTimeout(() => {
-      btn.innerHTML = oldText;
-    }, 2000);
+        const oldText = btn.innerHTML;
+        btn.innerHTML = "✔ Скопійовано";
 
-    // 🔥 OPEN CHATGPT
-    window.open("https://chatgpt.com", "_blank");
+        setTimeout(() => {
+            btn.innerHTML = oldText;
+        }, 2000);
 
-  } catch (err) {
-
-    console.error(err);
-
-    alert("Не вдалося скопіювати текст");
-  }
+        window.open("https://chatgpt.com", "_blank");
+    } catch (err) {
+        console.error(err);
+        alert("Не вдалося скопіювати текст");
+    }
 }
 
 /* ================================
