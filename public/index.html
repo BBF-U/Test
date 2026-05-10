@@ -447,23 +447,34 @@ ${text}`;
 
   try {
 
-    // копіюємо у буфер
-    await navigator.clipboard.writeText(prompt);
+    // 🔥 створюємо приховане поле
+    const temp = document.createElement("textarea");
 
-    // міняємо текст кнопки
+    temp.value = prompt;
+
+    document.body.appendChild(temp);
+
+    temp.select();
+    temp.setSelectionRange(0, 999999);
+
+    // 🔥 старий стабільний copy
+    document.execCommand("copy");
+
+    document.body.removeChild(temp);
+
+    // 🔥 фідбек
     const old = btn.innerHTML;
 
     btn.innerHTML = "✔ Скопійовано";
 
-    // відкриваємо ChatGPT
+    // 🔥 відкриваємо ChatGPT
     window.open("https://chatgpt.com", "_blank");
 
-    // повертаємо кнопку
     setTimeout(() => {
       btn.innerHTML = old;
     }, 2000);
 
-  } catch {
+  } catch (err) {
 
     alert("Не вдалося скопіювати текст");
   }
