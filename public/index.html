@@ -440,7 +440,7 @@ async function copyOutput() {
 /* ================================
    CHATGPT
 ================================= */
-async function openChatGPT() {
+function openChatGPT() {
 
   const text = input.value.trim();
 
@@ -458,13 +458,32 @@ ${text}`;
 
   try {
 
+    // 🔥 hidden textarea
+    const temp = document.createElement("textarea");
+
+    temp.value = prompt;
+
+    temp.style.position = "fixed";
+    temp.style.left = "-9999px";
+
+    document.body.appendChild(temp);
+
+    temp.focus();
+    temp.select();
+
+    // 🔥 старий стабільний copy
+    const success = document.execCommand("copy");
+
+    document.body.removeChild(temp);
+
+    if (!success) {
+      throw new Error("COPY_FAILED");
+    }
+
     // 🔥 відкриваємо ChatGPT
     window.open("https://chatgpt.com", "_blank");
 
-    // 🔥 копіюємо текст
-    await navigator.clipboard.writeText(prompt);
-
-    // 🔥 фідбек
+    // 🔥 feedback
     const oldText = btn.innerHTML;
 
     btn.innerHTML = "✔ Скопійовано";
