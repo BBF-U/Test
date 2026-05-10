@@ -128,6 +128,7 @@ button:hover {
 </head>
 
 <body>
+
 <div class="container">
 
 <h1>РИБА 🐟</h1>
@@ -135,11 +136,13 @@ button:hover {
 
 <!-- INPUT -->
 <div class="card">
+
   <div class="counter" id="counterInput">0 символів</div>
 
   <textarea id="input" placeholder="Встав текст..."></textarea>
 
   <div class="actions">
+
     <div style="display:flex; gap:8px;">
       <button onclick="clearInput()">Очистити</button>
       <button onclick="clearTrash()">🗑 Сміття</button>
@@ -148,11 +151,14 @@ button:hover {
     <button class="chatgpt" onclick="openChatGPT()">
       💬 ChatGPT
     </button>
+
   </div>
+
 </div>
 
 <!-- MODES -->
 <div class="card">
+
   <div class="row modes">
     <button onclick="setMode('telegram')" id="telegram">Telegram</button>
     <button onclick="setMode('neutral')" id="neutral">Нейтрально</button>
@@ -164,24 +170,29 @@ button:hover {
     <button onclick="setSize('medium')" id="medium">Середнє</button>
     <button onclick="setSize('long')" id="long">Детально</button>
   </div>
+
 </div>
 
 <!-- ACTION -->
 <div class="card">
+
   <div class="row">
     <button class="primary" onclick="send()">
       ЗРОБИТИ РИБУ
     </button>
   </div>
+
 </div>
 
 <!-- OUTPUT -->
 <div class="card">
+
   <div class="counter" id="counterOutput">0 символів</div>
 
   <textarea id="output" placeholder="Тут буде результат..."></textarea>
 
   <div class="actions">
+
     <div style="display:flex; gap:8px;">
       <button onclick="clearOutput()">Очистити</button>
 
@@ -194,7 +205,9 @@ button:hover {
       <span class="icon">📋</span>
       <span class="text">Скопіювати</span>
     </button>
+
   </div>
+
 </div>
 
 </div>
@@ -246,6 +259,7 @@ output.addEventListener("input", () => {
    MODE / SIZE
 ================================= */
 function setMode(m) {
+
   mode = m;
 
   document
@@ -256,6 +270,7 @@ function setMode(m) {
 }
 
 function setSize(s) {
+
   size = s;
 
   document
@@ -271,25 +286,31 @@ function setSize(s) {
 async function send(isRetry = false) {
 
   if (!input.value.trim()) {
+
     output.value = "⚠️ Встав текст";
     updateOutputCounter();
+
     return;
   }
 
   if (!isRetry) {
+
     lastText = input.value;
     lastMode = mode;
     lastSize = size;
   }
 
   output.value = "⏳ Генеруємо...";
+
   updateOutputCounter();
   autoResizeOutput();
 
   try {
 
     const res = await fetch("/api/test", {
+
       method: "POST",
+
       headers: {
         "Content-Type": "application/json"
       },
@@ -313,6 +334,7 @@ async function send(isRetry = false) {
   } catch {
 
     output.value = "❌ Помилка";
+
     updateOutputCounter();
   }
 }
@@ -321,6 +343,7 @@ async function send(isRetry = false) {
    RETRY
 ================================= */
 function retry() {
+
   if (lastText) {
     send(true);
   }
@@ -330,7 +353,9 @@ function retry() {
    CLEAR INPUT
 ================================= */
 function clearInput() {
+
   input.value = "";
+
   updateInputCounter();
 }
 
@@ -338,6 +363,7 @@ function clearInput() {
    CLEAR OUTPUT
 ================================= */
 function clearOutput() {
+
   output.value = "";
 
   updateOutputCounter();
@@ -351,20 +377,14 @@ function clearTrash() {
 
   let text = input.value;
 
-  // Підтримати
   text = text.replace(/🚀Підтримати[\s\S]*?(?=\n\n|$)/g, "");
-
-  // Приєднатися
   text = text.replace(/🚀Приєднатися[\s\S]*?(?=\n\n|$)/g, "");
 
-  // URL
   text = text.replace(/\(https?:\/\/[^\s]+\)/g, "");
 
-  // Emoji
   text = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, "");
   text = text.replace(/[\u{2600}-\u{27BF}]/gu, "");
 
-  // Зайві пусті рядки
   text = text.replace(/\n{3,}/g, "\n\n").trim();
 
   input.value = text;
@@ -409,7 +429,7 @@ function copyOutput() {
 /* ================================
    CHATGPT
 ================================= */
-function openChatGPT() {
+async function openChatGPT() {
 
   const text = input.value.trim();
 
@@ -419,12 +439,34 @@ function openChatGPT() {
   }
 
   const prompt =
-    "Поясни і проаналізуй цей текст:\n\n" + text;
+`Поясни і проаналізуй цей текст:
 
-  const url =
-    "https://chatgpt.com/?q=" + encodeURIComponent(prompt);
+${text}`;
 
-  window.open(url, "_blank");
+  const btn = document.querySelector(".chatgpt");
+
+  try {
+
+    // копіюємо у буфер
+    await navigator.clipboard.writeText(prompt);
+
+    // міняємо текст кнопки
+    const old = btn.innerHTML;
+
+    btn.innerHTML = "✔ Скопійовано";
+
+    // відкриваємо ChatGPT
+    window.open("https://chatgpt.com", "_blank");
+
+    // повертаємо кнопку
+    setTimeout(() => {
+      btn.innerHTML = old;
+    }, 2000);
+
+  } catch {
+
+    alert("Не вдалося скопіювати текст");
+  }
 }
 
 /* ================================
@@ -434,36 +476,29 @@ function cleanIncomingText(text) {
 
   return text
 
-    // Назви сайтів
     .replace(/^.*ITC\.ua.*$/gim, '')
     .replace(/^.*MC Today.*$/gim, '')
     .replace(/^.*mezha\.media.*$/gim, '')
     .replace(/^.*ain\.ua.*$/gim, '')
     .replace(/^.*dev\.ua.*$/gim, '')
 
-    // Автор
     .replace(/^від .*$/gm, '')
     .replace(/^от .*$/gm, '')
     .replace(/^Текст:.*$/gm, '')
     .replace(/^Фото:.*$/gm, '')
     .replace(/^Теги:.*$/gm, '')
 
-    // Дата
     .replace(/^\d{1,2}:\d{2}.*$/gm, '')
     .replace(/^\d{1,2} [а-яА-Я]+ \d{4}.*$/gm, '')
 
-    // Telegram
     .replace(/Читати у Telegram/g, '')
 
-    // Реклама
     .replace(/^Реклама.*$/gm, '')
     .replace(/^Поділитися.*$/gm, '')
 
-    // Джерело
     .replace(/Джерело:.*$/gm, '')
     .replace(/Источник:.*$/gm, '')
 
-    // Зайві порожні рядки
     .replace(/\n{3,}/g, '\n\n')
 
     .trim();
@@ -484,7 +519,6 @@ function cleanIncomingText(text) {
 
     updateInputCounter();
 
-    // очищаємо URL
     window.history.replaceState({}, '', '/');
   }
 
@@ -504,5 +538,3 @@ autoResizeOutput();
 
 </body>
 </html>
-
-
