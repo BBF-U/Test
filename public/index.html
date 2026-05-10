@@ -6,13 +6,11 @@
 <title>РИБА 🐟</title>
 
 <style>
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font-family: Inter, Arial, sans-serif;
+  font-family: Inter, Arial;
   background: #f7f8fc;
   color: #222;
 }
@@ -266,7 +264,7 @@ function setMode(m) {
 
   document
     .querySelectorAll(".modes button")
-    .forEach(btn => btn.classList.remove("active"));
+    .forEach(b => b.classList.remove("active"));
 
   document.getElementById(m).classList.add("active");
 }
@@ -277,7 +275,7 @@ function setSize(s) {
 
   document
     .querySelectorAll(".sizes button")
-    .forEach(btn => btn.classList.remove("active"));
+    .forEach(b => b.classList.remove("active"));
 
   document.getElementById(s).classList.add("active");
 }
@@ -296,6 +294,7 @@ async function send(isRetry = false) {
   }
 
   if (!isRetry) {
+
     lastText = input.value;
     lastMode = mode;
     lastSize = size;
@@ -332,9 +331,7 @@ async function send(isRetry = false) {
 
     document.getElementById("retryBtn").disabled = false;
 
-  } catch (err) {
-
-    console.error(err);
+  } catch {
 
     output.value = "❌ Помилка";
 
@@ -380,20 +377,14 @@ function clearTrash() {
 
   let text = input.value;
 
-  // Підтримати
   text = text.replace(/🚀Підтримати[\s\S]*?(?=\n\n|$)/g, "");
-
-  // Приєднатися
   text = text.replace(/🚀Приєднатися[\s\S]*?(?=\n\n|$)/g, "");
 
-  // URL
   text = text.replace(/\(https?:\/\/[^\s]+\)/g, "");
 
-  // Emoji
   text = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, "");
   text = text.replace(/[\u{2600}-\u{27BF}]/gu, "");
 
-  // Пусті рядки
   text = text.replace(/\n{3,}/g, "\n\n").trim();
 
   input.value = text;
@@ -404,7 +395,7 @@ function clearTrash() {
 /* ================================
    COPY OUTPUT
 ================================= */
-async function copyOutput() {
+function copyOutput() {
 
   if (!output.value) return;
 
@@ -412,11 +403,9 @@ async function copyOutput() {
 
   try {
 
-    await navigator.clipboard.writeText(output.value);
+    navigator.clipboard.writeText(output.value);
 
-  } catch (err) {
-
-    console.error(err);
+  } catch {
 
     output.select();
     document.execCommand("copy");
@@ -458,24 +447,23 @@ ${text}`;
 
   try {
 
-    // 🔥 відкриваємо ChatGPT
-    window.open("https://chatgpt.com", "_blank");
-
-    // 🔥 копіюємо текст
+    // копіюємо у буфер
     await navigator.clipboard.writeText(prompt);
 
-    // 🔥 фідбек
-    const oldText = btn.innerHTML;
+    // міняємо текст кнопки
+    const old = btn.innerHTML;
 
     btn.innerHTML = "✔ Скопійовано";
 
+    // відкриваємо ChatGPT
+    window.open("https://chatgpt.com", "_blank");
+
+    // повертаємо кнопку
     setTimeout(() => {
-      btn.innerHTML = oldText;
+      btn.innerHTML = old;
     }, 2000);
 
-  } catch (err) {
-
-    console.error(err);
+  } catch {
 
     alert("Не вдалося скопіювати текст");
   }
@@ -488,37 +476,30 @@ function cleanIncomingText(text) {
 
   return text
 
-    // Назви сайтів
-    .replace(/^.*ITC\.ua.*$/gim, "")
-    .replace(/^.*MC Today.*$/gim, "")
-    .replace(/^.*mezha\.media.*$/gim, "")
-    .replace(/^.*ain\.ua.*$/gim, "")
-    .replace(/^.*dev\.ua.*$/gim, "")
+    .replace(/^.*ITC\.ua.*$/gim, '')
+    .replace(/^.*MC Today.*$/gim, '')
+    .replace(/^.*mezha\.media.*$/gim, '')
+    .replace(/^.*ain\.ua.*$/gim, '')
+    .replace(/^.*dev\.ua.*$/gim, '')
 
-    // Автор
-    .replace(/^від .*$/gm, "")
-    .replace(/^от .*$/gm, "")
-    .replace(/^Текст:.*$/gm, "")
-    .replace(/^Фото:.*$/gm, "")
-    .replace(/^Теги:.*$/gm, "")
+    .replace(/^від .*$/gm, '')
+    .replace(/^от .*$/gm, '')
+    .replace(/^Текст:.*$/gm, '')
+    .replace(/^Фото:.*$/gm, '')
+    .replace(/^Теги:.*$/gm, '')
 
-    // Дата
-    .replace(/^\d{1,2}:\d{2}.*$/gm, "")
-    .replace(/^\d{1,2} [а-яА-Я]+ \d{4}.*$/gm, "")
+    .replace(/^\d{1,2}:\d{2}.*$/gm, '')
+    .replace(/^\d{1,2} [а-яА-Я]+ \d{4}.*$/gm, '')
 
-    // Telegram
-    .replace(/Читати у Telegram/g, "")
+    .replace(/Читати у Telegram/g, '')
 
-    // Реклама
-    .replace(/^Реклама.*$/gm, "")
-    .replace(/^Поділитися.*$/gm, "")
+    .replace(/^Реклама.*$/gm, '')
+    .replace(/^Поділитися.*$/gm, '')
 
-    // Джерело
-    .replace(/Джерело:.*$/gm, "")
-    .replace(/Источник:.*$/gm, "")
+    .replace(/Джерело:.*$/gm, '')
+    .replace(/Источник:.*$/gm, '')
 
-    // Порожні рядки
-    .replace(/\n{3,}/g, "\n\n")
+    .replace(/\n{3,}/g, '\n\n')
 
     .trim();
 }
@@ -538,8 +519,7 @@ function cleanIncomingText(text) {
 
     updateInputCounter();
 
-    // очищаємо URL
-    window.history.replaceState({}, "", "/");
+    window.history.replaceState({}, '', '/');
   }
 
 })();
