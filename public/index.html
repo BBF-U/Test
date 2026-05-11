@@ -129,159 +129,22 @@ button {
 
 <div class="card">
   <div class="row modes">
-    <button onclick="setMode('telegram')" id="telegram">Telegram</button>
-    <button onclick="setMode('neutral')" id="neutral">Нейтрально</button>
-    <button onclick="setMode('journal')" id="journal">Журналіст</button>
-  </div>
-
-  <div class="row sizes" style="margin-top:10px">
-    <button onclick="setSize('short')" id="short">Стисло</button>
-    <button onclick="setSize('medium')" id="medium">Середнє</button>
-    <button onclick="setSize('long')" id="long">Детально</button>
-  </div>
-</div>
-
-<div class="card">
-  <div class="row">
-    <button class="primary" onclick="send()">ЗРОБИТИ РИБУ</button>
-  </div>
-</div>
-
-<div class="card">
-  <div class="counter" id="counterOutput">0 символів</div>
-  <textarea id="output" placeholder="Тут буде результат..."></textarea>
-
-  <div class="actions">
-    <div style="display:flex; gap:8px;">
-      <button onclick="clearOutput()">Очистити</button>
-      <button id="retryBtn" onclick="retry()" disabled>🔄 Ще раз</button>
-    </div>
-
-    <button id="copyBtn" onclick="copyOutput()">
-      <span class="icon">📋</span>
-      <span class="text">Скопіювати</span>
-    </button>
-  </div>
-</div>
-
-</div>
-
-<script>
-let mode = "neutral";
-let size = "medium";
-let lastText = null;
-let lastMode = null;
-let lastSize = null;
-
-const input = document.getElementById("input");
-const output = document.getElementById("output");
-const counterInput = document.getElementById("counterInput");
-const counterOutput = document.getElementById("counterOutput");
-
-function autoResizeOutput() {
-  output.style.height = "auto";
-  output.style.height = output.scrollHeight + "px";
+@@ -258,100 +261,112 @@
+  updateInputCounter();
 }
 
-function updateInputCounter() {
-  counterInput.innerText = input.value.length + " символів";
-}
-
-function updateOutputCounter() {
-  counterOutput.innerText = output.value.length + " символів";
-}
-
-input.addEventListener("input", updateInputCounter);
-
-output.addEventListener("input", () => {
-  updateOutputCounter();
-  autoResizeOutput();
-});
-
-function setMode(m) {
-  mode = m;
-  document.querySelectorAll(".modes button").forEach(b => b.classList.remove("active"));
-  document.getElementById(m).classList.add("active");
-}
-
-function setSize(s) {
-  size = s;
-  document.querySelectorAll(".sizes button").forEach(b => b.classList.remove("active"));
-  document.getElementById(s).classList.add("active");
-}
-
-async function send(isRetry = false) {
-  if (!input.value.trim()) {
-    output.value = "⚠️ Встав текст";
-    updateOutputCounter();
-    return;
-  }
-
-  if (!isRetry) {
-    lastText = input.value;
-    lastMode = mode;
-    lastSize = size;
-  }
-
-  output.value = "⏳ Генеруємо...";
-  updateOutputCounter();
-  autoResizeOutput();
-
-  try {
-    const res = await fetch("/api/test", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text: isRetry ? lastText : input.value,
-        mode: isRetry ? lastMode : mode,
-        size: isRetry ? lastSize : size
-      })
-    });
-
-    const data = await res.json();
-
-    output.value = data.result || "";
-    updateOutputCounter();
-    autoResizeOutput();
-
-    document.getElementById("retryBtn").disabled = false;
-
-  } catch {
-    output.value = "❌ Помилка";
-    updateOutputCounter();
-  }
-}
-
-function retry() {
-  if (lastText) send(true);
-}
-
-function clearInput() {
+function clearTrash() {
   input.value = "";
+
+  // очистити вставлений текст
+  localStorage.removeItem("ryba_text");
+
+  // очистити URL (якщо передавали через ?text=)
+  window.history.replaceState({}, document.title, window.location.pathname);
+
   updateInputCounter();
 }
-
-functionfunction clearTrash() {
-  let text = input.value;
-
-  // 🔥 прибираємо блоки з "Підтримати" і "Приєднатися"
-  text = text.replace(/🚀Підтримати[\s\S]*?(?=\n\n|$)/g, "");
-  text = text.replace(/🚀Приєднатися[\s\S]*?(?=\n\n|$)/g, "");
-
-  // 🔥 прибираємо залишки URL
-  text = text.replace(/\(https?:\/\/[^\s]+\)/g, "");
-
-  // 🔥 прибираємо зайві емодзі (як у тебе в бекенді)
-  text = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, "");
-  text = text.replace(/[\u{2600}-\u{27BF}]/gu, "");
-
-  // 🔥 нормалізуємо відступи
-  text = text.replace(/\n{3,}/g, "\n\n").trim();
-
-  input.value = text;
-  updateInputCounter();
-}
-
+  
 function clearOutput() {
   output.value = "";
   updateOutputCounter();
