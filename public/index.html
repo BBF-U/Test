@@ -6,13 +6,11 @@
 <title>РИБА 🐟</title>
 
 <style>
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font-family: Inter, Arial, sans-serif;
+  font-family: Inter, Arial;
   background: #f7f8fc;
   color: #222;
 }
@@ -49,8 +47,6 @@ textarea {
   border: 1px solid #ddd;
   padding: 12px;
   resize: none;
-  font-size: 15px;
-  line-height: 1.5;
 }
 
 #input {
@@ -84,24 +80,9 @@ button {
   cursor: pointer;
   background: white;
   transition: 0.2s;
-  font-size: 14px;
 }
 
-button:hover {
-  opacity: 0.9;
-}
-
-.primary {
-  background: #ff9f43;
-  color: white;
-  border: none;
-}
-
-.chatgpt {
-  background: #10a37f;
-  color: white;
-  border: none;
-}
+.primary { background: #ff9f43; color: white; border: none; }
 
 .active {
   background: #ff9f43 !important;
@@ -130,37 +111,20 @@ button:hover {
 </head>
 
 <body>
-
 <div class="container">
 
 <h1>РИБА 🐟</h1>
 <div class="subtitle">AI генератор резюме</div>
 
-<!-- INPUT -->
 <div class="card">
-
   <div class="counter" id="counterInput">0 символів</div>
-
   <textarea id="input" placeholder="Встав текст..."></textarea>
-
   <div class="actions">
-
-    <div style="display:flex; gap:8px;">
-      <button onclick="clearInput()">Очистити</button>
-      <button onclick="clearTrash()">🗑 Сміття</button>
-    </div>
-
-    <button class="chatgpt" onclick="openChatGPT()">
-      💬 ChatGPT
-    </button>
-
+    <button onclick="clearInput()">Очистити</button>
   </div>
-
 </div>
 
-<!-- MODES -->
 <div class="card">
-
   <div class="row modes">
     <button onclick="setMode('telegram')" id="telegram">Telegram</button>
     <button onclick="setMode('neutral')" id="neutral">Нейтрально</button>
@@ -172,44 +136,29 @@ button:hover {
     <button onclick="setSize('medium')" id="medium">Середнє</button>
     <button onclick="setSize('long')" id="long">Детально</button>
   </div>
-
 </div>
 
-<!-- ACTION -->
 <div class="card">
-
   <div class="row">
-    <button class="primary" onclick="send()">
-      ЗРОБИТИ РИБУ
-    </button>
+    <button class="primary" onclick="send()">ЗРОБИТИ РИБУ</button>
   </div>
-
 </div>
 
-<!-- OUTPUT -->
 <div class="card">
-
   <div class="counter" id="counterOutput">0 символів</div>
-
   <textarea id="output" placeholder="Тут буде результат..."></textarea>
 
   <div class="actions">
-
     <div style="display:flex; gap:8px;">
       <button onclick="clearOutput()">Очистити</button>
-
-      <button id="retryBtn" onclick="retry()" disabled>
-        🔄 Ще раз
-      </button>
+      <button id="retryBtn" onclick="retry()" disabled>🔄 Ще раз</button>
     </div>
 
     <button id="copyBtn" onclick="copyOutput()">
       <span class="icon">📋</span>
       <span class="text">Скопіювати</span>
     </button>
-
   </div>
-
 </div>
 
 </div>
@@ -217,28 +166,20 @@ button:hover {
 <script>
 let mode = "neutral";
 let size = "medium";
-
 let lastText = null;
 let lastMode = null;
 let lastSize = null;
 
 const input = document.getElementById("input");
 const output = document.getElementById("output");
-
 const counterInput = document.getElementById("counterInput");
 const counterOutput = document.getElementById("counterOutput");
 
-/* ================================
-   AUTO RESIZE OUTPUT
-================================= */
 function autoResizeOutput() {
   output.style.height = "auto";
   output.style.height = output.scrollHeight + "px";
 }
 
-/* ================================
-   COUNTERS
-================================= */
 function updateInputCounter() {
   counterInput.innerText = input.value.length + " символів";
 }
@@ -247,9 +188,6 @@ function updateOutputCounter() {
   counterOutput.innerText = output.value.length + " символів";
 }
 
-/* ================================
-   EVENTS
-================================= */
 input.addEventListener("input", updateInputCounter);
 
 output.addEventListener("input", () => {
@@ -257,41 +195,22 @@ output.addEventListener("input", () => {
   autoResizeOutput();
 });
 
-/* ================================
-   MODE / SIZE
-================================= */
 function setMode(m) {
-
   mode = m;
-
-  document
-    .querySelectorAll(".modes button")
-    .forEach(btn => btn.classList.remove("active"));
-
+  document.querySelectorAll(".modes button").forEach(b => b.classList.remove("active"));
   document.getElementById(m).classList.add("active");
 }
 
 function setSize(s) {
-
   size = s;
-
-  document
-    .querySelectorAll(".sizes button")
-    .forEach(btn => btn.classList.remove("active"));
-
+  document.querySelectorAll(".sizes button").forEach(b => b.classList.remove("active"));
   document.getElementById(s).classList.add("active");
 }
 
-/* ================================
-   SEND
-================================= */
 async function send(isRetry = false) {
-
   if (!input.value.trim()) {
-
     output.value = "⚠️ Встав текст";
     updateOutputCounter();
-
     return;
   }
 
@@ -302,20 +221,13 @@ async function send(isRetry = false) {
   }
 
   output.value = "⏳ Генеруємо...";
-
   updateOutputCounter();
   autoResizeOutput();
 
   try {
-
     const res = await fetch("/api/test", {
-
       method: "POST",
-
-      headers: {
-        "Content-Type": "application/json"
-      },
-
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         text: isRetry ? lastText : input.value,
         mode: isRetry ? lastMode : mode,
@@ -326,195 +238,118 @@ async function send(isRetry = false) {
     const data = await res.json();
 
     output.value = data.result || "";
-
     updateOutputCounter();
     autoResizeOutput();
 
     document.getElementById("retryBtn").disabled = false;
 
-  } catch (err) {
-
-    console.error(err);
-
+  } catch {
     output.value = "❌ Помилка";
-
     updateOutputCounter();
   }
 }
 
-/* ================================
-   RETRY
-================================= */
 function retry() {
-
-  if (lastText) {
-    send(true);
-  }
+  if (lastText) send(true);
 }
 
-/* ================================
-   CLEAR INPUT
-================================= */
 function clearInput() {
-
   input.value = "";
-
   updateInputCounter();
 }
 
-/* ================================
-   CLEAR OUTPUT
-================================= */
 function clearOutput() {
-
   output.value = "";
-
   updateOutputCounter();
   autoResizeOutput();
 }
 
-/* ================================
-   CLEAN JUNK
-================================= */
-function clearTrash() {
+function copyOutput() {
+  if (!output.value) return;
 
-  let text = input.value;
+  const btn = document.getElementById("copyBtn");
 
-  text = text.replace(/🚀Підтримати[\s\S]*?(?=\n\n|$)/g, "");
-  text = text.replace(/🚀Приєднатися[\s\S]*?(?=\n\n|$)/g, "");
+  try {
+    navigator.clipboard.writeText(output.value);
+  } catch {
+    output.select();
+    document.execCommand("copy");
+  }
 
-  text = text.replace(/\(https?:\/\/[^\s]+\)/g, "");
+  btn.classList.add("copied");
+  btn.querySelector(".text").textContent = "Скопійовано";
+  btn.querySelector(".icon").textContent = "✔";
 
-  text = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, "");
-  text = text.replace(/[\u{2600}-\u{27BF}]/gu, "");
-
-  text = text.replace(/\n{3,}/g, "\n\n").trim();
-
-  input.value = text;
-
-  updateInputCounter();
+  setTimeout(() => {
+    btn.classList.remove("copied");
+    btn.querySelector(".text").textContent = "Скопіювати";
+    btn.querySelector(".icon").textContent = "📋";
+  }, 2000);
 }
 
-/* ================================
-   COPY OUTPUT (Сучасний метод)
-================================= */
-async function copyOutput() {
-    if (!output.value) return;
-
-    const btn = document.getElementById("copyBtn");
-
-    try {
-        await navigator.clipboard.writeText(output.value);
-        
-        btn.classList.add("copied");
-        btn.querySelector(".text").textContent = "Скопійовано";
-        btn.querySelector(".icon").textContent = "✔";
-
-        setTimeout(() => {
-            btn.classList.remove("copied");
-            btn.querySelector(".text").textContent = "Скопіювати";
-            btn.querySelector(".icon").textContent = "📋";
-        }, 2000);
-    } catch (err) {
-        console.error("Помилка копіювання:", err);
-    }
-}
-
-/* ================================
-   CHATGPT (Фікс вставки)
-================================= */
-async function openChatGPT() {
-    const text = input.value.trim();
-    if (!text) {
-        alert("Немає тексту");
-        return;
-    }
-
-    const prompt = `Поясни дуже стисло і проаналізуй цей текст:\n\n${text}`;
-    const btn = document.querySelector(".chatgpt");
-
-    try {
-        // Копіюємо промпт у буфер обміну
-        await navigator.clipboard.writeText(prompt);
-
-        const oldText = btn.innerHTML;
-        btn.innerHTML = "✔ Скопійовано";
-
-        setTimeout(() => {
-            btn.innerHTML = oldText;
-        }, 2000);
-
-        window.open("https://chatgpt.com", "_blank");
-    } catch (err) {
-        console.error(err);
-        alert("Не вдалося скопіювати текст");
-    }
-}
-
-/* ================================
-   CLEAN INCOMING TEXT
-================================= */
 function cleanIncomingText(text) {
-
   return text
-
-    .replace(/^.*ITC\.ua.*$/gim, "")
-    .replace(/^.*MC Today.*$/gim, "")
-    .replace(/^.*mezha\.media.*$/gim, "")
-    .replace(/^.*ain\.ua.*$/gim, "")
-    .replace(/^.*dev\.ua.*$/gim, "")
-
-    .replace(/^від .*$/gm, "")
-    .replace(/^от .*$/gm, "")
-    .replace(/^Текст:.*$/gm, "")
-    .replace(/^Фото:.*$/gm, "")
-    .replace(/^Теги:.*$/gm, "")
-
-    .replace(/^\d{1,2}:\d{2}.*$/gm, "")
-    .replace(/^\d{1,2} [а-яА-Я]+ \d{4}.*$/gm, "")
-
-    .replace(/Читати у Telegram/g, "")
-
-    .replace(/^Реклама.*$/gm, "")
-    .replace(/^Поділитися.*$/gm, "")
-
-    .replace(/Джерело:.*$/gm, "")
-    .replace(/Источник:.*$/gm, "")
-
-    .replace(/\n{3,}/g, "\n\n")
-
+    // Назви джерел
+    .replace(/^.*ITC\.ua.*$/gim, '')
+    .replace(/^.*ITC\.UA.*$/gim, '')
+    .replace(/^.*MC Today.*$/gim, '')
+    .replace(/^.*mezha\.media.*$/gim, '')
+    .replace(/^.*ain\.ua.*$/gim, '')
+    .replace(/^.*dev\.ua.*$/gim, '')
+    // Автор і дата
+    .replace(/^від .*$/gm, '')
+    .replace(/^от .*$/gm, '')
+    .replace(/^Текст:.*$/gm, '')
+    .replace(/^Фото:.*$/gm, '')
+    .replace(/^Теги:.*$/gm, '')
+    .replace(/^\d{1,2}:\d{2}.*$/gm, '')
+    .replace(/^\d{1,2} [а-яА-Я]+ \d{4}.*$/gm, '')
+    // Ім'я автора з посадою
+    .replace(/^[А-ЯІЇЄ][а-яіїє]+ [А-ЯІЇЄ][а-яіїє]+\s+.{20,}$/gm, '')
+    .replace(/^[А-ЯІЇЄ][а-яіїє]+ [А-ЯІЇЄ][а-яіїє]+\s*$/gm, '')
+    // Системні повідомлення
+    .replace(/You are overusing.*?listen/gs, '')
+    .replace(/Understood/g, '')
+    .replace(/Создать правило/g, '')
+    .replace(/Читати у Telegram/g, '')
+    // Футер і службові рядки
+    .replace(/Читайте також[\s\S]*$/g, '')
+    .replace(/The post .* first appeared on .*\./g, '')
+    .replace(/Джерело:.*$/gm, '')
+    .replace(/Источник:.*$/gm, '')
+    .replace(/Знайшли помилку.*$/gm, '')
+    .replace(/виділіть її та натисніть.*$/gm, '')
+    .replace(/^Реклама.*$/gm, '')
+    .replace(/^Поділитися.*$/gm, '')
+    .replace(/Реклама:/g, '')
+    // Останній рядок якщо це анонс іншої статті
+    .replace(/\n[^\n]{40,}[^.!?»]\s*$/g, '')
+    // Теги в кінці
+    .replace(/^([А-ЯІЇЄа-яіїєA-Za-z]+ ?){1,3}$/gm, (match) => {
+      return match.trim().length < 40 ? '' : match;
+    })
+    // Числа-лічильники
+    .replace(/^\s*\d+\s*$/gm, '')
+    // Зайві порожні рядки
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
-/* ================================
-   LOAD FROM URL
-================================= */
-(function () {
-
+// Отримуємо текст від Inoreader через URL параметр
+(function() {
   const params = new URLSearchParams(window.location.search);
-
-  const incoming = params.get("text");
-
+  const incoming = params.get('text');
   if (incoming) {
-
     input.value = cleanIncomingText(incoming);
-
     updateInputCounter();
-
-    window.history.replaceState({}, "", "/");
+    window.history.replaceState({}, '', '/');
   }
-
 })();
 
-/* ================================
-   INIT
-================================= */
 setMode("neutral");
 setSize("medium");
-
 updateInputCounter();
 updateOutputCounter();
-
 autoResizeOutput();
 </script>
 
