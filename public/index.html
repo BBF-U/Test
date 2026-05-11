@@ -261,8 +261,7 @@ function clearInput() {
   updateInputCounter();
 }
 
-function clearTrash() {
-  input.value = "";
+functionfunction clearTrash() {
   let text = input.value;
 
   // 🔥 прибираємо блоки з "Підтримати" і "Приєднатися"
@@ -272,14 +271,10 @@ function clearTrash() {
   // 🔥 прибираємо залишки URL
   text = text.replace(/\(https?:\/\/[^\s]+\)/g, "");
 
-  // очистити вставлений текст
-  localStorage.removeItem("ryba_text");
   // 🔥 прибираємо зайві емодзі (як у тебе в бекенді)
   text = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, "");
   text = text.replace(/[\u{2600}-\u{27BF}]/gu, "");
 
-  // очистити URL (якщо передавали через ?text=)
-  window.history.replaceState({}, document.title, window.location.pathname);
   // 🔥 нормалізуємо відступи
   text = text.replace(/\n{3,}/g, "\n\n").trim();
 
