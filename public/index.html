@@ -120,8 +120,11 @@ button {
   <div class="counter" id="counterInput">0 символів</div>
   <textarea id="input" placeholder="Встав текст..."></textarea>
   <div class="actions">
+  <div style="display:flex; gap:8px;">
     <button onclick="clearInput()">Очистити</button>
+    <button onclick="clearTrash()">🗑 Сміття</button>
   </div>
+</div>
 </div>
 
 <div class="card">
@@ -255,6 +258,32 @@ function retry() {
 
 function clearInput() {
   input.value = "";
+  updateInputCounter();
+}
+
+function clearTrash() {
+  input.value = "";
+  let text = input.value;
+
+  // 🔥 прибираємо блоки з "Підтримати" і "Приєднатися"
+  text = text.replace(/🚀Підтримати[\s\S]*?(?=\n\n|$)/g, "");
+  text = text.replace(/🚀Приєднатися[\s\S]*?(?=\n\n|$)/g, "");
+
+  // 🔥 прибираємо залишки URL
+  text = text.replace(/\(https?:\/\/[^\s]+\)/g, "");
+
+  // очистити вставлений текст
+  localStorage.removeItem("ryba_text");
+  // 🔥 прибираємо зайві емодзі (як у тебе в бекенді)
+  text = text.replace(/[\u{1F300}-\u{1F9FF}]/gu, "");
+  text = text.replace(/[\u{2600}-\u{27BF}]/gu, "");
+
+  // очистити URL (якщо передавали через ?text=)
+  window.history.replaceState({}, document.title, window.location.pathname);
+  // 🔥 нормалізуємо відступи
+  text = text.replace(/\n{3,}/g, "\n\n").trim();
+
+  input.value = text;
   updateInputCounter();
 }
 
