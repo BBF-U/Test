@@ -124,7 +124,7 @@ const sizes = {
 async function callGemini(prompt, maxTokens = 1000, retries = 3) {
   for (let i = 0; i <= retries; i++) {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/models/gemini-3.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/models/gemini-3.5-flash:generateContent?key=${keys.gemini}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
