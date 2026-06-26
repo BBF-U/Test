@@ -147,6 +147,9 @@ async function callGemini(prompt, maxTokens = 1000, retries = 3) {
 
     const data = await response.json();
 
+   console.log("STATUS:", response.status);
+   console.log("BODY:", JSON.stringify(data, null, 2));
+       
     if (response.status === 429 || response.status === 503) {
       if (i < retries) {
         await new Promise(r => setTimeout(r, (i + 1) * 5000));
