@@ -121,25 +121,49 @@ const sizes = {
 /* ================================
    🤖 GEMINI
 ================================= */
-async function callGemini(prompt, maxTokens = 1000, retries = 3) {
-  for (let i = 0; i <= retries; i++) {
+async function callGemini(prompt, maxTokens = 1000) {
+
+  while (true) {
+
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [
+            {
+              parts: [
+                {
+                  text: prompt
+                }
+              ]
+            }
+          ],
           generationConfig: {
             maxOutputTokens: maxTokens,
             temperature: 0.2,
             topP: 0.9
           },
           safetySettings: [
-            { category: "HARM_CATEGORY_HARASSMENT",        threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_HATE_SPEECH",       threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+            {
+              category: "HARM_CATEGORY_HARASSMENT",
+              threshold: "BLOCK_NONE"
+            },
+            {
+              category: "HARM_CATEGORY_HATE_SPEECH",
+              threshold: "BLOCK_NONE"
+            },
+            {
+              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              threshold: "BLOCK_NONE"
+            },
+            {
+              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+              threshold: "BLOCK_NONE"
+            }
           ]
         })
       }
@@ -147,27 +171,45 @@ async function callGemini(prompt, maxTokens = 1000, retries = 3) {
 
     const data = await response.json();
 
-   console.log("STATUS:", response.status);
-   console.log("BODY:", JSON.stringify(data, null, 2));
-       
+    // Для Render
+    console.log("STATUS:", response.status);
+    console.log("BODY:", JSON.stringify(data));
+
+    if (response.ok) {
+
+      return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+    }
+
+    // Якщо Google просить почекати
     if (response.status === 429 || response.status === 503) {
-      if (i < retries) {
-        await new Promise(r => setTimeout(r, (i + 1) * 5000));
-        continue;
-      }
-      throw new Error("RATE_LIMIT");
+
+      let retrySeconds = 35;
+
+      try {
+
+        const retry =
+          data?.error?.details?.find(
+            x => x["@type"]?.includes("RetryInfo")
+          )?.retryDelay;
+
+        if (retry) {
+          retrySeconds = parseInt(retry);
+        }
+
+      } catch {}
+
+      console.log(`Waiting ${retrySeconds}s...`);
+
+      await new Promise(r =>
+        setTimeout(r, retrySeconds * 1000)
+      );
+
+      continue;
     }
 
-    if (!response.ok) {
-      const msg = data?.error?.message || "";
-      if (msg.includes("high demand") && i < retries) {
-        await new Promise(r => setTimeout(r, (i + 1) * 5000));
-        continue;
-      }
-      throw new Error(msg || "API error");
-    }
-
-    return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+    throw new Error(
+      data?.error?.message || "API error"
+    );
   }
 }
 
