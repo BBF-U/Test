@@ -113,17 +113,31 @@ const styles = {
    📏 ОБСЯГ
 ================================= */
 const sizes = {
-  short:  { instruction: "Максимум 2-3 речення. Тільки найголовніше, все інше викидай.", maxTokens: 400  },
-  medium: { instruction: "3-4 абзаци по 2-3 речення. Охопи всі ключові теми.", maxTokens: 1200 },
-  long:   { instruction: "5-7 абзаців по 2-3 речення. Максимально повно з усіма фактами.", maxTokens: 2000 }
+  short: {
+    instruction: "Максимум 2-3 речення.",
+    coverage: "Передай лише найважливіші теми. Свідомо пропусти другорядні деталі.",
+    maxTokens: 500
+  },
+
+  medium: {
+    instruction: "3-4 абзаци по 2-3 речення.",
+    coverage: "Передай усі ключові теми, скорочуючи повтори та другорядні пояснення.",
+    maxTokens: 1200
+  },
+
+  long: {
+    instruction: "5-7 абзаців по 2-3 речення.",
+    coverage: "Передай кожен логічний блок і всі важливі факти. Скорочуй лише повтори та зайві пояснення.",
+    maxTokens: 2200
+  }
 };
 
 /* ================================
    🤖 GEMINI
 ================================= */
-async function callGemini(prompt, maxTokens = 1000) {
+async function callGemini(prompt, maxTokens = 1000, maxRetries = 4) {
 
-  while (true) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1/models/gemini-3.1-flash-lite:generateContent?key=${process.env.GEMINI_API_KEY}`,
@@ -133,18 +147,14 @@ async function callGemini(prompt, maxTokens = 1000) {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: prompt
-                }
-              ]
-            }
-          ],
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }],
           generationConfig: {
             maxOutputTokens: maxTokens,
-            temperature: 0.2,
+            temperature: 0.15,
             topP: 0.9
           },
           safetySettings: [
@@ -171,19 +181,19 @@ async function callGemini(prompt, maxTokens = 1000) {
 
     const data = await response.json();
 
-    // Для Render
     console.log("STATUS:", response.status);
-    console.log("BODY:", JSON.stringify(data));
 
     if (response.ok) {
-
       return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
     }
 
-    // Якщо Google просить почекати
     if (response.status === 429 || response.status === 503) {
 
-      let retrySeconds = 35;
+      if (attempt === maxRetries) {
+        throw new Error("RATE_LIMIT");
+      }
+
+      let retrySeconds = 10;
 
       try {
 
@@ -194,11 +204,19 @@ async function callGemini(prompt, maxTokens = 1000) {
 
         if (retry) {
           retrySeconds = parseInt(retry);
+        } else {
+          retrySeconds = Math.min(10 * Math.pow(2, attempt - 1), 40);
         }
 
-      } catch {}
+      } catch {
 
-      console.log(`Waiting ${retrySeconds}s...`);
+        retrySeconds = Math.min(10 * Math.pow(2, attempt - 1), 40);
+
+      }
+
+      console.log(
+        `Attempt ${attempt}/${maxRetries}. Waiting ${retrySeconds}s...`
+      );
 
       await new Promise(r =>
         setTimeout(r, retrySeconds * 1000)
@@ -211,6 +229,8 @@ async function callGemini(prompt, maxTokens = 1000) {
       data?.error?.message || "API error"
     );
   }
+
+  throw new Error("RATE_LIMIT");
 }
 
 /* ================================
@@ -226,39 +246,55 @@ app.post("/api/test", async (req, res) => {
   text = cleanText(text);
 
   const style = styles[mode] || styles.neutral;
-  const { instruction, maxTokens } = sizes[size] || sizes.medium;
+  const {
+  instruction,
+  coverage,
+  maxTokens
+} = sizes[size] || sizes.medium;
 
   try {
     const prompt = `
 ${style}
 
-ОБСЯГ: ${instruction}
+ОБСЯГ:
+${instruction}
+
+ПОКРИТТЯ ТЕМ:
+${coverage}
 
 ЗАВДАННЯ:
-Створи резюме, максимально зберігаючи структуру оригіналу.
 
-Спочатку визнач усі основні теми тексту.
-Потім стисло передай КОЖНУ тему.
-Не пропускай жоден логічний блок.
-Скорочуй лише другорядні пояснення і повтори.
+Створи компактне, але повне резюме.
+
+Перед написанням подумки поділи текст на логічні блоки.
+
+Потім стисло передай зміст відповідно до вказаного покриття тем.
+
+Не об'єднуй різні теми в одне речення.
 
 РОБОТА З ЧИСЛАМИ:
-- всі числа, дати, відсотки копіюй без змін
-- не змінюй роки і цифри
-- якщо є число — залиш його як є
 
-ЗАБОРОНЕНО:
-- вигадувати факти
-- змінювати числа
-- обривати відповідь
+- всі числа, дати, роки, відсотки та валюти копіюй без змін
+- не змінюй цифри
+- якщо є число — залиш його без змін
 
-ПЕРЕД ВІДПОВІДДЮ:
+КРИТИЧНО ВАЖЛИВО:
 
-1. Переліч подумки всі теми статті.
-2. Переконайся, що кожна тема присутня у резюме.
-3. Лише після цього сформуй остаточний текст.
+- не вигадуй фактів
+- не змінюй зміст
+- не пропускай теми, якщо цього не дозволяє покриття
+- не обрізай відповідь
+- не додавай інформацію від себе
+
+ФОРМАТ:
+
+- звичайний текст
+- без списків
+- без Markdown
+- без заголовків
 
 Текст:
+
 ${text}
 `.trim();
 
