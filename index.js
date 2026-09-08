@@ -1440,7 +1440,7 @@ async function generateValidatedSummary(
   originalText,
   mode,
   size,
-  maxAttempts = 4
+  maxAttempts = 2
 ) {
 
   const sizeConfig =
