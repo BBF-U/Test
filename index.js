@@ -6,7 +6,6 @@ const app = express();
 app.use(express.json({ limit: "2mb" }));
 app.use(express.static("public"));
 
-
 /* =========================================================
    CONFIG
 ========================================================= */
@@ -32,7 +31,6 @@ function cleanText(t) {
     .trim();
 }
 
-
 function cleanParagraph(t) {
   if (!t) return "";
 
@@ -42,7 +40,6 @@ function cleanParagraph(t) {
     .replace(/[ \t]+/g, " ")
     .trim();
 }
-
 
 function cleanResult(t) {
   if (!t) return "";
@@ -60,20 +57,6 @@ function cleanResult(t) {
    NUMBER / DATE VALIDATION
 ========================================================= */
 
-/*
-  Витягуємо числа.
-
-  Підтримує:
-  123
-  1234
-  1 234
-  1 234 567
-  11,7
-  11.7
-  11,7%
-  11.7%
-*/
-
 function extractNumbers(text) {
   const matches = String(text).match(
     /\b(?:\d{1,3}(?:[ \u00A0]\d{3})+|\d+)(?:[.,]\d+)?%?/g
@@ -82,25 +65,11 @@ function extractNumbers(text) {
   return matches || [];
 }
 
-
-/*
-  Нормалізація чисел для перевірки.
-
-  Gemini може без зміни значення записати:
-
-  11,7 -> 11.7
-  1,5  -> 1.5
-  1 000 -> 1000
-
-  Для фактологічної перевірки це одне й те саме число.
-*/
-
 function normalizeNumberToken(value) {
   return String(value)
-    .replace(/\s+/g, "")
+    .replace(/[ \u00A0]/g, "")
     .replace(/,/g, ".");
 }
-
 
 function extractDates(text) {
   const matches = String(text).match(
@@ -109,7 +78,6 @@ function extractDates(text) {
 
   return matches || [];
 }
-
 
 function extractYears(text) {
   const matches = String(text).match(
@@ -120,59 +88,474 @@ function extractYears(text) {
 }
 
 
-/*
-  Перевіряємо, що будь-яке число/дата/рік,
-  яке модель використала у результаті,
-  існує у вихідному тексті.
+/* =========================================================
+   UKRAINIAN NUMBER WORDS
+========================================================= */
 
-  Важливо:
-  ми НЕ вимагаємо перенесення всіх чисел.
-  Summary може законно пропустити частину цифр.
-*/
+const numberWordValues = {
+  "нуль": 0,
+  "нуля": 0,
+  "нулю": 0,
+  "нулем": 0,
+  "нулі": 0,
 
-function validateNumbers(original, summary) {
+  "один": 1,
+  "одна": 1,
+  "одне": 1,
+  "одну": 1,
+  "одного": 1,
+  "одній": 1,
+  "однією": 1,
+  "одні": 1,
 
-  const originalNumbers =
-    extractNumbers(original)
-      .map(normalizeNumberToken);
+  "два": 2,
+  "дві": 2,
+  "двох": 2,
+  "двом": 2,
+  "двома": 2,
 
-  const resultNumbers =
-    extractNumbers(summary)
-      .map(normalizeNumberToken);
+  "три": 3,
+  "трьох": 3,
+  "трьом": 3,
+  "трьома": 3,
 
-  const originalDates =
-    extractDates(original);
+  "чотири": 4,
+  "чотирьох": 4,
+  "чотирьом": 4,
+  "чотирма": 4,
 
-  const resultDates =
-    extractDates(summary);
+  "п'ять": 5,
+  "п’ять": 5,
+  "пять": 5,
+  "п'яти": 5,
+  "п’яти": 5,
+  "пяти": 5,
+  "п'ятьох": 5,
+  "п’ятьох": 5,
+  "п'ятьма": 5,
+  "п’ятьма": 5,
 
-  const originalYears =
-    extractYears(original);
+  "шість": 6,
+  "шісти": 6,
+  "шести": 6,
+  "шістьох": 6,
+  "шістьом": 6,
+  "шістьма": 6,
 
-  const resultYears =
-    extractYears(summary);
+  "сім": 7,
+  "сімох": 7,
+  "сімом": 7,
+  "сімома": 7,
+  "семи": 7,
+
+  "вісім": 8,
+  "вісьмох": 8,
+  "вісьмом": 8,
+  "вісьмома": 8,
+  "восьми": 8,
+
+  "дев'ять": 9,
+  "дев’ять": 9,
+  "девять": 9,
+  "дев'яти": 9,
+  "дев’яти": 9,
+  "девяти": 9,
+  "дев'ятьох": 9,
+  "дев’ятьох": 9,
+  "дев'ятьма": 9,
+  "дев’ятьма": 9,
+
+  "десять": 10,
+  "десяти": 10,
+
+  "одинадцять": 11,
+  "одинадцяти": 11,
+
+  "дванадцять": 12,
+  "дванадцяти": 12,
+
+  "тринадцять": 13,
+  "тринадцяти": 13,
+
+  "чотирнадцять": 14,
+  "чотирнадцяти": 14,
+
+  "п'ятнадцять": 15,
+  "п’ятнадцять": 15,
+  "п'ятнадцяти": 15,
+  "п’ятнадцяти": 15,
+
+  "шістнадцять": 16,
+  "шістнадцяти": 16,
+
+  "сімнадцять": 17,
+  "сімнадцяти": 17,
+
+  "вісімнадцять": 18,
+  "вісімнадцяти": 18,
+
+  "дев'ятнадцять": 19,
+  "дев’ятнадцять": 19,
+  "дев'ятнадцяти": 19,
+  "дев’ятнадцяти": 19,
+
+  "двадцять": 20,
+  "двадцяти": 20,
+
+  "тридцять": 30,
+  "тридцяти": 30,
+
+  "сорок": 40,
+
+  "п'ятдесят": 50,
+  "п’ятдесят": 50,
+
+  "шістдесят": 60,
+  "шістдесяти": 60,
+
+  "сімдесят": 70,
+  "сімдесяти": 70,
+
+  "вісімдесят": 80,
+  "вісімдесяти": 80,
+
+  "дев'яносто": 90,
+  "дев’яносто": 90,
+
+  "сто": 100,
+  "ста": 100,
+
+  "двісті": 200,
+  "триста": 300,
+  "чотириста": 400,
+
+  "п'ятсот": 500,
+  "п’ятсот": 500,
+
+  "шістсот": 600,
+  "сімсот": 700,
+  "вісімсот": 800,
+
+  "дев'ятсот": 900,
+  "дев’ятсот": 900
+};
 
 
-  const originalNumberSet =
-    new Set(originalNumbers);
+/* =========================================================
+   UKRAINIAN COMPOSITE NUMBER PARSER
+========================================================= */
 
-  const originalDateSet =
-    new Set(originalDates);
+const units = {
+  "нуль": 0,
+  "один": 1,
+  "одна": 1,
+  "одне": 1,
+  "одну": 1,
+  "два": 2,
+  "дві": 2,
+  "три": 3,
+  "чотири": 4,
+  "п'ять": 5,
+  "п’ять": 5,
+  "пять": 5,
+  "шість": 6,
+  "сім": 7,
+  "вісім": 8,
+  "дев'ять": 9,
+  "дев’ять": 9,
+  "девять": 9
+};
 
-  const originalYearSet =
-    new Set(originalYears);
+const tens = {
+  "двадцять": 20,
+  "тридцять": 30,
+  "сорок": 40,
+  "п'ятдесят": 50,
+  "п’ятдесят": 50,
+  "шістдесят": 60,
+  "сімдесят": 70,
+  "вісімдесят": 80,
+  "дев'яносто": 90,
+  "дев’яносто": 90
+};
 
+const hundreds = {
+  "сто": 100,
+  "двісті": 200,
+  "триста": 300,
+  "чотириста": 400,
+  "п'ятсот": 500,
+  "п’ятсот": 500,
+  "шістсот": 600,
+  "сімсот": 700,
+  "вісімсот": 800,
+  "дев'ятсот": 900,
+  "дев’ятсот": 900
+};
+
+const numberWordAliases = {
+  "одного": 1,
+  "одній": 1,
+  "однією": 1,
+  "одні": 1,
+
+  "двох": 2,
+  "двом": 2,
+  "двома": 2,
+
+  "трьох": 3,
+  "трьом": 3,
+  "трьома": 3,
+
+  "чотирьох": 4,
+  "чотирьом": 4,
+  "чотирма": 4,
+
+  "п'яти": 5,
+  "п’яти": 5,
+  "пяти": 5,
+  "п'ятьох": 5,
+  "п’ятьох": 5,
+  "п'ятьма": 5,
+  "п’ятьма": 5,
+
+  "шісти": 6,
+  "шести": 6,
+  "шістьох": 6,
+  "шістьом": 6,
+  "шістьма": 6,
+
+  "сімох": 7,
+  "сімом": 7,
+  "сімома": 7,
+  "семи": 7,
+
+  "вісьмох": 8,
+  "вісьмом": 8,
+  "вісьмома": 8,
+  "восьми": 8,
+
+  "дев'яти": 9,
+  "дев’яти": 9,
+  "девяти": 9,
+  "дев'ятьох": 9,
+  "дев’ятьох": 9,
+  "дев'ятьма": 9,
+  "дев’ятьма": 9,
+
+  "десяти": 10,
+
+  "одинадцяти": 11,
+  "дванадцяти": 12,
+  "тринадцяти": 13,
+  "чотирнадцяти": 14,
+  "п'ятнадцяти": 15,
+  "п’ятнадцяти": 15,
+  "шістнадцяти": 16,
+  "сімнадцяти": 17,
+  "вісімнадцяти": 18,
+  "дев'ятнадцяти": 19,
+  "дев’ятнадцяти": 19,
+
+  "двадцяти": 20,
+  "тридцяти": 30,
+  "сорока": 40,
+  "п'ятдесяти": 50,
+  "п’ятдесяти": 50,
+  "шістдесяти": 60,
+  "сімдесяти": 70,
+  "вісімдесяти": 80,
+  "дев'яноста": 90,
+  "дев’яноста": 90,
+
+  "ста": 100
+};
+
+function normalizeWordToken(word) {
+  return String(word)
+    .toLowerCase()
+    .replace(/^[^\p{L}']+/u, "")
+    .replace(/[^\p{L}'’]+$/u, "");
+}
+
+function getSimpleNumberWordValue(word) {
+  const w = normalizeWordToken(word);
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      numberWordValues,
+      w
+    )
+  ) {
+    return numberWordValues[w];
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(
+      numberWordAliases,
+      w
+    )
+  ) {
+    return numberWordAliases[w];
+  }
+
+  return null;
+}
+
+function parseCompositeNumberWords(words) {
+  const values = [];
+
+  for (let i = 0; i < words.length; i++) {
+
+    const word = normalizeWordToken(words[i]);
+
+    if (!word) continue;
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        hundreds,
+        word
+      )
+    ) {
+      values.push(hundreds[word]);
+      continue;
+    }
+
+    if (
+      Object.prototype.hasOwnProperty.call(
+        tens,
+        word
+      )
+    ) {
+      let value = tens[word];
+
+      const next =
+        normalizeWordToken(
+          words[i + 1] || ""
+        );
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          units,
+          next
+        )
+      ) {
+        value += units[next];
+        i++;
+      }
+
+      values.push(value);
+      continue;
+    }
+
+    const simple =
+      getSimpleNumberWordValue(word);
+
+    if (simple !== null) {
+      values.push(simple);
+    }
+  }
+
+  return values;
+}
+
+function extractNumberWordValues(text) {
+
+  const normalized =
+    String(text)
+      .toLowerCase()
+      .replace(/[«»„“”]/g, "")
+      .replace(/[-–—]/g, " ");
+
+  const words =
+    normalized
+      .split(/\s+/)
+      .map(normalizeWordToken)
+      .filter(Boolean);
+
+  return parseCompositeNumberWords(words);
+}
+
+
+/* =========================================================
+   NUMERIC VALUE EXTRACTION
+========================================================= */
+
+function extractNumericValues(text) {
+
+  const values = [];
+
+  for (
+    const number of extractNumbers(text)
+  ) {
+
+    const normalized =
+      normalizeNumberToken(number)
+        .replace(/%$/, "");
+
+    const numericValue =
+      Number(normalized);
+
+    if (
+      !Number.isNaN(numericValue)
+    ) {
+      values.push(numericValue);
+    }
+  }
+
+  values.push(
+    ...extractNumberWordValues(text)
+  );
+
+  return values;
+}
+
+
+/* =========================================================
+   NUMBER VALIDATION
+========================================================= */
+
+function validateNumbers(
+  original,
+  summary
+) {
+
+  const originalNumericValues =
+    new Set(
+      extractNumericValues(
+        original
+      )
+    );
+
+  const resultNumericValues =
+    extractNumericValues(
+      summary
+    );
 
   /*
-    Перевірка чисел.
+    Якщо Gemini написав число цифрами,
+    якого в оригіналі немає,
+    але в оригіналі воно було записане словами,
+    воно тепер також буде знайдене.
+
+    Наприклад:
+
+    оригінал: "сім пунктів"
+    результат: "7 пунктів"
+
+    7 == 7 → OK
   */
 
-  for (const number of resultNumbers) {
+  for (
+    const value of resultNumericValues
+  ) {
 
-    if (!originalNumberSet.has(number)) {
+    if (
+      !originalNumericValues.has(value)
+    ) {
 
       console.log(
-        `NUMBER MISMATCH: "${number}" | ORIGINAL: ${originalNumbers.join(", ")}`
+        `NUMBER MISMATCH: "${value}" | ORIGINAL VALUES: ${[...originalNumericValues].join(", ")}`
       );
 
       return false;
@@ -181,12 +564,25 @@ function validateNumbers(original, summary) {
 
 
   /*
-    Перевірка дат.
+    Дати.
   */
 
-  for (const date of resultDates) {
+  const originalDates =
+    extractDates(original);
 
-    if (!originalDateSet.has(date)) {
+  const resultDates =
+    extractDates(summary);
+
+  const originalDateSet =
+    new Set(originalDates);
+
+  for (
+    const date of resultDates
+  ) {
+
+    if (
+      !originalDateSet.has(date)
+    ) {
 
       console.log(
         `DATE MISMATCH: "${date}" | ORIGINAL: ${originalDates.join(", ")}`
@@ -198,12 +594,25 @@ function validateNumbers(original, summary) {
 
 
   /*
-    Перевірка років.
+    Роки.
   */
 
-  for (const year of resultYears) {
+  const originalYears =
+    extractYears(original);
 
-    if (!originalYearSet.has(year)) {
+  const resultYears =
+    extractYears(summary);
+
+  const originalYearSet =
+    new Set(originalYears);
+
+  for (
+    const year of resultYears
+  ) {
+
+    if (
+      !originalYearSet.has(year)
+    ) {
 
       console.log(
         `YEAR MISMATCH: "${year}" | ORIGINAL: ${originalYears.join(", ")}`
@@ -229,8 +638,6 @@ const sizes = {
     targetRatio: 0.27,
     minRatio: 0.19,
     maxRatio: 0.35,
-
-    // Безпечна верхня межа для fallback.
     hardMaxRatio: 0.324,
 
     instruction: `
@@ -258,7 +665,6 @@ const sizes = {
       "Передай саму суть новини: подія, головний результат та найважливіші специфічні деталі.",
 
     maxTokens: 2200,
-
     thinkingLevel: "minimal"
   },
 
@@ -268,7 +674,6 @@ const sizes = {
     targetRatio: 0.47,
     minRatio: 0.36,
     maxRatio: 0.58,
-
     hardMaxRatio: 0.555,
 
     instruction: `
@@ -300,7 +705,6 @@ const sizes = {
       "Передай приблизно 70–80% основної ідеї: головну новину, основні теми, ключові факти, важливі характеристики та цифри.",
 
     maxTokens: 4200,
-
     thinkingLevel: "low"
   },
 
@@ -310,7 +714,6 @@ const sizes = {
     targetRatio: 0.67,
     minRatio: 0.54,
     maxRatio: 0.80,
-
     hardMaxRatio: 0.7705,
 
     instruction: `
@@ -342,7 +745,6 @@ const sizes = {
       "Передай 100% суттєвої інформації: всі основні теми, важливі факти, характеристики, цифри, порівняння, контекст і перспективи — без води.",
 
     maxTokens: 6500,
-
     thinkingLevel: "medium"
   }
 
@@ -350,10 +752,13 @@ const sizes = {
 
 
 /* =========================================================
-   CALCULATE TARGET LENGTH
+   LENGTH LIMITS
 ========================================================= */
 
-function getLengthLimits(originalText, size) {
+function getLengthLimits(
+  originalText,
+  size
+) {
 
   const config =
     sizes[size] || sizes.medium;
@@ -362,12 +767,9 @@ function getLengthLimits(originalText, size) {
     originalText.length;
 
 
-  /*
-    Для дуже коротких текстів
-    використовуємо окрему логіку.
-  */
-
-  if (originalLength < 500) {
+  if (
+    originalLength < 500
+  ) {
 
     return {
 
@@ -434,18 +836,16 @@ function getLengthLimits(originalText, size) {
 
 
   return {
-
     target,
     min,
     max,
     hardMax
-
   };
 }
 
 
 /* =========================================================
-   FORMAT LENGTH INFO
+   LENGTH INSTRUCTION
 ========================================================= */
 
 function getLengthInstruction(
@@ -481,13 +881,9 @@ function getLengthInstruction(
 `;
 
 
-  /*
-    Якщо попередня спроба була невдалою
-    через довжину — пояснюємо моделі,
-    як скоригувати наступну.
-  */
-
-  if (previousLength !== null) {
+  if (
+    previousLength !== null
+  ) {
 
     if (
       previousStatus ===
@@ -635,7 +1031,6 @@ function validateUnsupportedClaims(
 
       return false;
     }
-
   }
 
 
@@ -653,7 +1048,9 @@ function validateParagraphStructure(
   size
 ) {
 
-  if (!Array.isArray(paragraphs)) {
+  if (
+    !Array.isArray(paragraphs)
+  ) {
     return false;
   }
 
@@ -664,7 +1061,9 @@ function validateParagraphStructure(
       .filter(Boolean);
 
 
-  if (cleaned.length === 0) {
+  if (
+    cleaned.length === 0
+  ) {
     return false;
   }
 
@@ -680,13 +1079,6 @@ function validateParagraphStructure(
   let maxParagraphs;
 
 
-  /*
-    Для адаптивного форматування:
-
-    Чим довший результат,
-    тим більше логічних блоків.
-  */
-
   const estimatedTarget =
     getLengthLimits(
       original,
@@ -694,7 +1086,9 @@ function validateParagraphStructure(
     ).target;
 
 
-  if (size === "short") {
+  if (
+    size === "short"
+  ) {
 
     minParagraphs =
       estimatedTarget >= 700
@@ -706,7 +1100,9 @@ function validateParagraphStructure(
         ? 6
         : 5;
 
-  } else if (size === "medium") {
+  } else if (
+    size === "medium"
+  ) {
 
     minParagraphs =
       estimatedTarget >= 1000
@@ -741,25 +1137,21 @@ function validateParagraphStructure(
   }
 
 
-  /*
-    Не дозволяємо мікроабзаци.
-  */
-
   for (
     const paragraph of cleaned
   ) {
 
-    if (paragraph.length < 30) {
+    if (
+      paragraph.length < 30
+    ) {
       return false;
     }
   }
 
 
-  /*
-    Адаптивна мінімальна середня довжина абзацу.
-  */
-
-  if (paragraphCount > 1) {
+  if (
+    paragraphCount > 1
+  ) {
 
     const averageLength =
       cleaned.join(" ").length /
@@ -978,7 +1370,6 @@ LONG:
 "найшвидший", "найпотужніший",
 якщо відповідне твердження прямо
 не підтверджене вихідним текстом.
-
 `;
 
 
@@ -1025,8 +1416,6 @@ const styles = {
 
 `,
 
-
-
   neutral: `
 
 СТИЛЬ: Нейтральний.
@@ -1053,8 +1442,6 @@ const styles = {
 Не роби кожне речення окремим абзацом.
 
 `,
-
-
 
   journal: `
 
@@ -1088,7 +1475,6 @@ const styles = {
 Не роби кожне речення окремим абзацом.
 
 `
-
 };
 
 
@@ -1108,11 +1494,9 @@ function buildPrompt(
     styles[mode] ||
     styles.neutral;
 
-
   const sizeConfig =
     sizes[size] ||
     sizes.medium;
-
 
   const lengthInstruction =
     getLengthInstruction(
@@ -1201,7 +1585,9 @@ async function callGemini(
   maxRetries = 4
 ) {
 
-  if (!process.env.GEMINI_API_KEY) {
+  if (
+    !process.env.GEMINI_API_KEY
+  ) {
 
     throw new Error(
       "GEMINI_API_KEY не знайдено"
@@ -1233,12 +1619,10 @@ async function callGemini(
               systemInstruction: {
 
                 parts: [
-
                   {
                     text:
                       SYSTEM_INSTRUCTION
                   }
-
                 ]
 
               },
@@ -1251,11 +1635,9 @@ async function callGemini(
                   role: "user",
 
                   parts: [
-
                     {
                       text: prompt
                     }
-
                   ]
 
                 }
@@ -1290,7 +1672,6 @@ async function callGemini(
 
                     },
 
-
                     themes_count: {
 
                       type: "INTEGER",
@@ -1299,7 +1680,6 @@ async function callGemini(
                         "Приблизна кількість основних тематичних блоків у джерелі."
 
                     },
-
 
                     numbers_verified: {
 
@@ -1312,7 +1692,6 @@ async function callGemini(
 
                   },
 
-
                   required: [
                     "paragraphs",
                     "themes_count",
@@ -1320,7 +1699,6 @@ async function callGemini(
                   ]
 
                 },
-
 
                 thinkingConfig: {
 
@@ -1346,7 +1724,9 @@ async function callGemini(
       );
 
 
-      if (response.ok) {
+      if (
+        response.ok
+      ) {
 
         const rawText =
           data
@@ -1360,18 +1740,12 @@ async function callGemini(
           throw new Error(
             "Порожня відповідь Gemini"
           );
-
         }
 
 
         return rawText.trim();
-
       }
 
-
-      /*
-        Temporary API errors
-      */
 
       if (
         response.status === 429 ||
@@ -1386,7 +1760,6 @@ async function callGemini(
           throw new Error(
             "RATE_LIMIT"
           );
-
         }
 
 
@@ -1409,19 +1782,24 @@ async function callGemini(
               ?.retryDelay;
 
 
-          if (retry) {
+          if (
+            retry
+          ) {
 
             const parsed =
-              parseInt(retry);
+              parseInt(
+                retry
+              );
 
 
             if (
-              !Number.isNaN(parsed)
+              !Number.isNaN(
+                parsed
+              )
             ) {
 
               retrySeconds =
                 parsed;
-
             }
 
           } else {
@@ -1435,7 +1813,6 @@ async function callGemini(
                   ),
                 40
               );
-
           }
 
         } catch {
@@ -1449,7 +1826,6 @@ async function callGemini(
                 ),
               40
             );
-
         }
 
 
@@ -1468,7 +1844,6 @@ async function callGemini(
 
 
         continue;
-
       }
 
 
@@ -1479,6 +1854,7 @@ async function callGemini(
         `Gemini API error (${response.status})`
       );
 
+
     } catch (err) {
 
       if (
@@ -1487,7 +1863,6 @@ async function callGemini(
       ) {
 
         throw err;
-
       }
 
 
@@ -1521,14 +1896,11 @@ async function callGemini(
 
 
         continue;
-
       }
 
 
       throw err;
-
     }
-
   }
 
 
@@ -1558,7 +1930,6 @@ function parseGeminiResult(raw) {
       throw new Error(
         "Невірний JSON"
       );
-
     }
 
 
@@ -1571,7 +1942,6 @@ function parseGeminiResult(raw) {
       throw new Error(
         "Gemini не повернув paragraphs"
       );
-
     }
 
 
@@ -1609,9 +1979,7 @@ function parseGeminiResult(raw) {
     throw new Error(
       "INVALID_JSON"
     );
-
   }
-
 }
 
 
@@ -1641,14 +2009,12 @@ async function generateValidatedSummary(
   let previousLength =
     null;
 
-
   let previousStatus =
     null;
 
 
   let bestResult =
     null;
-
 
   let bestScore =
     Infinity;
@@ -1657,20 +2023,14 @@ async function generateValidatedSummary(
   let bestWithinHardMax =
     null;
 
-
   let bestWithinHardMaxScore =
     Infinity;
 
-
-  /*
-    Ідеальний діапазон — ±10% від цілі.
-  */
 
   const idealMin =
     Math.round(
       limits.target * 0.90
     );
-
 
   const idealMax =
     Math.round(
@@ -1743,7 +2103,6 @@ async function generateValidatedSummary(
 
 
       continue;
-
     }
 
 
@@ -1769,7 +2128,6 @@ async function generateValidatedSummary(
 
 
       continue;
-
     }
 
 
@@ -1798,11 +2156,9 @@ async function generateValidatedSummary(
     );
 
 
-    /*
-      Empty result
-    */
-
-    if (!summary) {
+    if (
+      !summary
+    ) {
 
       console.log(
         "Validation failed: EMPTY"
@@ -1814,12 +2170,11 @@ async function generateValidatedSummary(
 
 
       continue;
-
     }
 
 
     /*
-      Paragraph structure
+      Paragraph validation
     */
 
     if (
@@ -1843,12 +2198,11 @@ async function generateValidatedSummary(
 
 
       continue;
-
     }
 
 
     /*
-      Numbers / dates / years
+      Number validation
     */
 
     if (
@@ -1871,7 +2225,6 @@ async function generateValidatedSummary(
 
 
       continue;
-
     }
 
 
@@ -1899,13 +2252,11 @@ async function generateValidatedSummary(
 
 
       continue;
-
     }
 
 
     /*
-      Score candidate by distance
-      from the target.
+      Candidate score
     */
 
     const distance =
@@ -1927,12 +2278,6 @@ async function generateValidatedSummary(
       relativeDistance;
 
 
-    /*
-      Сильний штраф за hardMax,
-      щоб Short не перетворювався
-      на Medium при fallback.
-    */
-
     if (
       summaryLength >
       limits.hardMax
@@ -1948,14 +2293,8 @@ async function generateValidatedSummary(
           limits.target,
           1
         );
-
     }
 
-
-    /*
-      Невелика перевага кандидату,
-      який потрапив у preferred range.
-    */
 
     if (
       summaryLength >=
@@ -1966,13 +2305,8 @@ async function generateValidatedSummary(
 
       score -=
         0.10;
-
     }
 
-
-    /*
-      Зберігаємо найкращий результат.
-    */
 
     if (
       score <
@@ -1984,14 +2318,8 @@ async function generateValidatedSummary(
 
       bestResult =
         summary;
-
     }
 
-
-    /*
-      Окремо зберігаємо найкращий
-      результат, який не перевищує hardMax.
-    */
 
     if (
       summaryLength <=
@@ -2005,7 +2333,6 @@ async function generateValidatedSummary(
 
       bestWithinHardMax =
         summary;
-
     }
 
 
@@ -2013,12 +2340,6 @@ async function generateValidatedSummary(
       `CANDIDATE SCORE: ${score.toFixed(3)}`
     );
 
-
-    /*
-      Якщо результат дуже близький
-      до цілі і знаходиться у preferred range,
-      повертаємо його одразу.
-    */
 
     if (
       summaryLength >=
@@ -2042,31 +2363,20 @@ async function generateValidatedSummary(
 
 
       return summary;
-
     }
 
-
-    /*
-      Наступна спроба повинна
-      скоригувати обсяг.
-    */
 
     previousStatus =
       summaryLength <
       limits.target
         ? "too_short"
         : "too_long";
-
   }
 
 
   /*
-    Якщо точного результату не отримали,
-    повертаємо найкращий валідний кандидат.
-
-    Перевага:
-    1. кандидат без перевищення hardMax;
-    2. найближчий до цілі.
+    Fallback:
+    повертаємо найкращий валідний результат.
   */
 
   const finalResult =
@@ -2074,7 +2384,9 @@ async function generateValidatedSummary(
     bestResult;
 
 
-  if (finalResult) {
+  if (
+    finalResult
+  ) {
 
     const finalLength =
       finalResult.length;
@@ -2091,14 +2403,12 @@ async function generateValidatedSummary(
 
 
     return finalResult;
-
   }
 
 
   throw new Error(
     "Не вдалося отримати коректне резюме."
   );
-
 }
 
 
@@ -2117,10 +2427,6 @@ app.post(
     } = req.body;
 
 
-    /*
-      Basic validation
-    */
-
     if (
       !text ||
       typeof text !== "string" ||
@@ -2133,13 +2439,8 @@ app.post(
           "⚠️ Текст занадто короткий"
 
       });
-
     }
 
-
-    /*
-      Clean source
-    */
 
     text =
       cleanText(text);
@@ -2155,13 +2456,8 @@ app.post(
           "⚠️ Текст занадто короткий"
 
       });
-
     }
 
-
-    /*
-      Validate mode
-    */
 
     const validModes = [
       "telegram",
@@ -2176,13 +2472,8 @@ app.post(
 
       mode =
         "neutral";
-
     }
 
-
-    /*
-      Validate size
-    */
 
     const validSizes = [
       "short",
@@ -2197,13 +2488,8 @@ app.post(
 
       size =
         "medium";
-
     }
 
-
-    /*
-      Generate
-    */
 
     try {
 
@@ -2230,10 +2516,6 @@ app.post(
       );
 
 
-      /*
-        Rate limit
-      */
-
       if (
         err.message ===
         "RATE_LIMIT"
@@ -2245,13 +2527,8 @@ app.post(
             "⚠️ Тимчасовий ліміт API. Спробуй ще раз через 20–30 секунд."
 
         });
-
       }
 
-
-      /*
-        Other errors
-      */
 
       return res.json({
 
@@ -2260,9 +2537,7 @@ app.post(
           err.message
 
       });
-
     }
-
   }
 );
 
@@ -2282,7 +2557,6 @@ app.get(
         "index.html"
       )
     );
-
   }
 );
 
@@ -2296,7 +2570,6 @@ app.get(
   (req, res) => {
 
     res.send("ok");
-
   }
 );
 
@@ -2319,11 +2592,9 @@ app.listen(
       PORT
     );
 
-
     console.log(
       "🤖 MODEL: " +
       MODEL
     );
-
   }
 );
