@@ -60,12 +60,45 @@ function cleanResult(t) {
    NUMBER / DATE VALIDATION
 ========================================================= */
 
+/*
+  Витягуємо числа.
+
+  Підтримує:
+  123
+  1234
+  1 234
+  1 234 567
+  11,7
+  11.7
+  11,7%
+  11.7%
+*/
+
 function extractNumbers(text) {
   const matches = String(text).match(
-    /\b\d+(?:[.,]\d+)?%?/g
+    /\b(?:\d{1,3}(?:[ \u00A0]\d{3})+|\d+)(?:[.,]\d+)?%?/g
   );
 
   return matches || [];
+}
+
+
+/*
+  Нормалізація чисел для перевірки.
+
+  Gemini може без зміни значення записати:
+
+  11,7 -> 11.7
+  1,5  -> 1.5
+  1 000 -> 1000
+
+  Для фактологічної перевірки це одне й те саме число.
+*/
+
+function normalizeNumberToken(value) {
+  return String(value)
+    .replace(/\s+/g, "")
+    .replace(/,/g, ".");
 }
 
 
@@ -100,10 +133,12 @@ function extractYears(text) {
 function validateNumbers(original, summary) {
 
   const originalNumbers =
-    extractNumbers(original);
+    extractNumbers(original)
+      .map(normalizeNumberToken);
 
   const resultNumbers =
-    extractNumbers(summary);
+    extractNumbers(summary)
+      .map(normalizeNumberToken);
 
   const originalDates =
     extractDates(original);
@@ -128,25 +163,52 @@ function validateNumbers(original, summary) {
     new Set(originalYears);
 
 
+  /*
+    Перевірка чисел.
+  */
+
   for (const number of resultNumbers) {
 
     if (!originalNumberSet.has(number)) {
+
+      console.log(
+        `NUMBER MISMATCH: "${number}" | ORIGINAL: ${originalNumbers.join(", ")}`
+      );
+
       return false;
     }
   }
 
+
+  /*
+    Перевірка дат.
+  */
 
   for (const date of resultDates) {
 
     if (!originalDateSet.has(date)) {
+
+      console.log(
+        `DATE MISMATCH: "${date}" | ORIGINAL: ${originalDates.join(", ")}`
+      );
+
       return false;
     }
   }
 
 
+  /*
+    Перевірка років.
+  */
+
   for (const year of resultYears) {
 
     if (!originalYearSet.has(year)) {
+
+      console.log(
+        `YEAR MISMATCH: "${year}" | ORIGINAL: ${originalYears.join(", ")}`
+      );
+
       return false;
     }
   }
@@ -163,6 +225,7 @@ function validateNumbers(original, summary) {
 const sizes = {
 
   short: {
+
     targetRatio: 0.27,
     minRatio: 0.19,
     maxRatio: 0.35,
@@ -195,14 +258,17 @@ const sizes = {
       "Передай саму суть новини: подія, головний результат та найважливіші специфічні деталі.",
 
     maxTokens: 2200,
+
     thinkingLevel: "minimal"
   },
 
 
   medium: {
+
     targetRatio: 0.47,
     minRatio: 0.36,
     maxRatio: 0.58,
+
     hardMaxRatio: 0.555,
 
     instruction: `
@@ -234,14 +300,17 @@ const sizes = {
       "Передай приблизно 70–80% основної ідеї: головну новину, основні теми, ключові факти, важливі характеристики та цифри.",
 
     maxTokens: 4200,
+
     thinkingLevel: "low"
   },
 
 
   long: {
+
     targetRatio: 0.67,
     minRatio: 0.54,
     maxRatio: 0.80,
+
     hardMaxRatio: 0.7705,
 
     instruction: `
@@ -273,8 +342,10 @@ const sizes = {
       "Передай 100% суттєвої інформації: всі основні теми, важливі факти, характеристики, цифри, порівняння, контекст і перспективи — без води.",
 
     maxTokens: 6500,
+
     thinkingLevel: "medium"
   }
+
 };
 
 
@@ -291,34 +362,45 @@ function getLengthLimits(originalText, size) {
     originalText.length;
 
 
+  /*
+    Для дуже коротких текстів
+    використовуємо окрему логіку.
+  */
+
   if (originalLength < 500) {
 
     return {
-      target: Math.round(
-        originalLength *
-        config.targetRatio
-      ),
 
-      min: Math.max(
-        120,
+      target:
         Math.round(
-          originalLength * 0.20
-        )
-      ),
+          originalLength *
+          config.targetRatio
+        ),
 
-      max: Math.max(
-        250,
-        Math.round(
-          originalLength * 0.80
-        )
-      ),
+      min:
+        Math.max(
+          120,
+          Math.round(
+            originalLength * 0.20
+          )
+        ),
 
-      hardMax: Math.max(
-        280,
-        Math.round(
-          originalLength * 0.90
+      max:
+        Math.max(
+          250,
+          Math.round(
+            originalLength * 0.80
+          )
+        ),
+
+      hardMax:
+        Math.max(
+          280,
+          Math.round(
+            originalLength * 0.90
+          )
         )
-      )
+
     };
   }
 
@@ -329,17 +411,20 @@ function getLengthLimits(originalText, size) {
       config.targetRatio
     );
 
+
   const min =
     Math.round(
       originalLength *
       config.minRatio
     );
 
+
   const max =
     Math.round(
       originalLength *
       config.maxRatio
     );
+
 
   const hardMax =
     Math.round(
@@ -349,10 +434,12 @@ function getLengthLimits(originalText, size) {
 
 
   return {
+
     target,
     min,
     max,
     hardMax
+
   };
 }
 
@@ -376,6 +463,7 @@ function getLengthInstruction(
 
 
   let instruction = `
+
 ЦІЛЬОВИЙ ОБСЯГ:
 
 Вихідний текст: ${originalText.length} символів.
@@ -389,8 +477,15 @@ function getLengthInstruction(
 Не додавай текст лише для заповнення обсягу.
 Не скорочуй нижче цілі, якщо в джерелі є важливі факти,
 які ще можна стисло передати.
+
 `;
 
+
+  /*
+    Якщо попередня спроба була невдалою
+    через довжину — пояснюємо моделі,
+    як скоригувати наступну.
+  */
 
   if (previousLength !== null) {
 
@@ -400,6 +495,7 @@ function getLengthInstruction(
     ) {
 
       instruction += `
+
 ПОПЕРЕДНЯ СПРОБА БУЛА ЗАНАДТО КОРОТКОЮ:
 ${previousLength} символів.
 
@@ -409,6 +505,7 @@ ${previousLength} символів.
 яких бракує відповідно до режиму ${size}.
 
 Не додавай повтори або власні пояснення.
+
 `;
 
     } else if (
@@ -417,6 +514,7 @@ ${previousLength} символів.
     ) {
 
       instruction += `
+
 ПОПЕРЕДНЯ СПРОБА БУЛА ЗАНАДТО ДОВГОЮ:
 ${previousLength} символів.
 
@@ -426,6 +524,7 @@ ${previousLength} символів.
 повтори, довідковий контекст і другорядні приклади.
 
 Не видаляй ключові факти режиму ${size}.
+
 `;
     }
   }
@@ -489,6 +588,7 @@ const unsupportedClaimGroups = [
     "найпотужніше",
     "найпотужніші"
   ]
+
 ];
 
 
@@ -528,8 +628,14 @@ function validateUnsupportedClaims(
 
 
     if (!sourceHasClaim) {
+
+      console.log(
+        `UNSUPPORTED CLAIM DETECTED: ${group.join(", ")}`
+      );
+
       return false;
     }
+
   }
 
 
@@ -793,14 +899,19 @@ const SYSTEM_INSTRUCTION = `
 ВИБІР ІНФОРМАЦІЇ:
 
 SHORT:
+
 тільки сама суть — подія, головний результат
 і 1–2 найбільш важливі специфічні деталі.
 
+
 MEDIUM:
+
 приблизно 70–80% основної ідеї.
 Збережи основні тематичні блоки та ключові факти.
 
+
 LONG:
+
 100% суттєвої інформації без води.
 Не пропускай важливі факти лише тому,
 що вони технічні або другорядні на перший погляд.
@@ -837,6 +948,7 @@ LONG:
 а не словами.
 
 Правильно:
+
 3 мільярди євро
 21 мільярд євро
 11,7 мільярда євро
@@ -845,6 +957,7 @@ LONG:
 1,2 мільярда євро
 
 Неправильно:
+
 три мільярди євро
 двадцять один мільярд євро
 одинадцять цілих і сім десятків мільярда євро
@@ -865,6 +978,7 @@ LONG:
 "найшвидший", "найпотужніший",
 якщо відповідне твердження прямо
 не підтверджене вихідним текстом.
+
 `;
 
 
@@ -875,6 +989,7 @@ LONG:
 const styles = {
 
   telegram: `
+
 СТИЛЬ: Telegram.
 
 Пиши природно, живо та динамічно.
@@ -907,10 +1022,13 @@ const styles = {
 Один абзац — одна основна тема.
 
 Не роби кожне речення окремим абзацом.
+
 `,
 
 
+
   neutral: `
+
 СТИЛЬ: Нейтральний.
 
 Пиши нейтрально, точно та інформативно.
@@ -933,10 +1051,13 @@ const styles = {
 Один абзац — одна основна тема.
 
 Не роби кожне речення окремим абзацом.
+
 `,
 
 
+
   journal: `
+
 СТИЛЬ: Журнальний / новинний.
 
 Пиши як якісний матеріал технологічного
@@ -965,7 +1086,9 @@ const styles = {
 Один абзац — одна основна тема.
 
 Не роби кожне речення окремим абзацом.
+
 `
+
 };
 
 
@@ -1001,6 +1124,7 @@ function buildPrompt(
 
 
   return `
+
 ${style}
 
 ${sizeConfig.instruction}
@@ -1017,6 +1141,7 @@ ${lengthInstruction}
 Проаналізуй вихідний текст.
 
 Спочатку подумки визнач:
+
 1. головну новину;
 2. основні тематичні блоки;
 3. ключові специфічні факти;
@@ -1060,6 +1185,7 @@ ${lengthInstruction}
 ${text}
 
 <<<END_SOURCE_TEXT>>>
+
 `.trim();
 }
 
@@ -1076,6 +1202,7 @@ async function callGemini(
 ) {
 
   if (!process.env.GEMINI_API_KEY) {
+
     throw new Error(
       "GEMINI_API_KEY не знайдено"
     );
@@ -1094,6 +1221,7 @@ async function callGemini(
         await fetch(
           `${GEMINI_URL}?key=${process.env.GEMINI_API_KEY}`,
           {
+
             method: "POST",
 
             headers: {
@@ -1105,24 +1233,31 @@ async function callGemini(
               systemInstruction: {
 
                 parts: [
+
                   {
                     text:
                       SYSTEM_INSTRUCTION
                   }
+
                 ]
+
               },
 
 
               contents: [
 
                 {
+
                   role: "user",
 
                   parts: [
+
                     {
                       text: prompt
                     }
+
                   ]
+
                 }
 
               ],
@@ -1152,6 +1287,7 @@ async function callGemini(
                       items: {
                         type: "STRING"
                       }
+
                     },
 
 
@@ -1161,6 +1297,7 @@ async function callGemini(
 
                       description:
                         "Приблизна кількість основних тематичних блоків у джерелі."
+
                     },
 
 
@@ -1170,6 +1307,7 @@ async function callGemini(
 
                       description:
                         "true, якщо використані у результаті числа та інші числові факти відповідають джерелу."
+
                     }
 
                   },
@@ -1180,6 +1318,7 @@ async function callGemini(
                     "themes_count",
                     "numbers_verified"
                   ]
+
                 },
 
 
@@ -1187,10 +1326,13 @@ async function callGemini(
 
                   thinkingLevel:
                     thinkingLevel
+
                 }
 
               }
+
             })
+
           }
         );
 
@@ -1218,10 +1360,12 @@ async function callGemini(
           throw new Error(
             "Порожня відповідь Gemini"
           );
+
         }
 
 
         return rawText.trim();
+
       }
 
 
@@ -1242,6 +1386,7 @@ async function callGemini(
           throw new Error(
             "RATE_LIMIT"
           );
+
         }
 
 
@@ -1276,6 +1421,7 @@ async function callGemini(
 
               retrySeconds =
                 parsed;
+
             }
 
           } else {
@@ -1289,6 +1435,7 @@ async function callGemini(
                   ),
                 40
               );
+
           }
 
         } catch {
@@ -1302,6 +1449,7 @@ async function callGemini(
                 ),
               40
             );
+
         }
 
 
@@ -1320,6 +1468,7 @@ async function callGemini(
 
 
         continue;
+
       }
 
 
@@ -1330,7 +1479,6 @@ async function callGemini(
         `Gemini API error (${response.status})`
       );
 
-
     } catch (err) {
 
       if (
@@ -1339,6 +1487,7 @@ async function callGemini(
       ) {
 
         throw err;
+
       }
 
 
@@ -1372,11 +1521,14 @@ async function callGemini(
 
 
         continue;
+
       }
 
 
       throw err;
+
     }
+
   }
 
 
@@ -1406,6 +1558,7 @@ function parseGeminiResult(raw) {
       throw new Error(
         "Невірний JSON"
       );
+
     }
 
 
@@ -1418,6 +1571,7 @@ function parseGeminiResult(raw) {
       throw new Error(
         "Gemini не повернув paragraphs"
       );
+
     }
 
 
@@ -1440,6 +1594,7 @@ function parseGeminiResult(raw) {
 
       numbers_verified:
         parsed.numbers_verified === true
+
     };
 
 
@@ -1454,7 +1609,9 @@ function parseGeminiResult(raw) {
     throw new Error(
       "INVALID_JSON"
     );
+
   }
+
 }
 
 
@@ -1484,6 +1641,7 @@ async function generateValidatedSummary(
   let previousLength =
     null;
 
+
   let previousStatus =
     null;
 
@@ -1491,12 +1649,14 @@ async function generateValidatedSummary(
   let bestResult =
     null;
 
+
   let bestScore =
     Infinity;
 
 
   let bestWithinHardMax =
     null;
+
 
   let bestWithinHardMaxScore =
     Infinity;
@@ -1510,6 +1670,7 @@ async function generateValidatedSummary(
     Math.round(
       limits.target * 0.90
     );
+
 
   const idealMax =
     Math.round(
@@ -1582,6 +1743,7 @@ async function generateValidatedSummary(
 
 
       continue;
+
     }
 
 
@@ -1601,10 +1763,13 @@ async function generateValidatedSummary(
         "Validation failed: INVALID JSON"
       );
 
+
       previousStatus =
         "too_short";
 
+
       continue;
+
     }
 
 
@@ -1643,10 +1808,13 @@ async function generateValidatedSummary(
         "Validation failed: EMPTY"
       );
 
+
       previousStatus =
         "too_short";
 
+
       continue;
+
     }
 
 
@@ -1675,6 +1843,7 @@ async function generateValidatedSummary(
 
 
       continue;
+
     }
 
 
@@ -1702,6 +1871,7 @@ async function generateValidatedSummary(
 
 
       continue;
+
     }
 
 
@@ -1729,6 +1899,7 @@ async function generateValidatedSummary(
 
 
       continue;
+
     }
 
 
@@ -1777,6 +1948,7 @@ async function generateValidatedSummary(
           limits.target,
           1
         );
+
     }
 
 
@@ -1794,6 +1966,7 @@ async function generateValidatedSummary(
 
       score -=
         0.10;
+
     }
 
 
@@ -1811,6 +1984,7 @@ async function generateValidatedSummary(
 
       bestResult =
         summary;
+
     }
 
 
@@ -1831,6 +2005,7 @@ async function generateValidatedSummary(
 
       bestWithinHardMax =
         summary;
+
     }
 
 
@@ -1867,6 +2042,7 @@ async function generateValidatedSummary(
 
 
       return summary;
+
     }
 
 
@@ -1880,6 +2056,7 @@ async function generateValidatedSummary(
       limits.target
         ? "too_short"
         : "too_long";
+
   }
 
 
@@ -1914,12 +2091,14 @@ async function generateValidatedSummary(
 
 
     return finalResult;
+
   }
 
 
   throw new Error(
     "Не вдалося отримати коректне резюме."
   );
+
 }
 
 
@@ -1954,6 +2133,7 @@ app.post(
           "⚠️ Текст занадто короткий"
 
       });
+
     }
 
 
@@ -1975,6 +2155,7 @@ app.post(
           "⚠️ Текст занадто короткий"
 
       });
+
     }
 
 
@@ -1995,6 +2176,7 @@ app.post(
 
       mode =
         "neutral";
+
     }
 
 
@@ -2015,6 +2197,7 @@ app.post(
 
       size =
         "medium";
+
     }
 
 
@@ -2062,6 +2245,7 @@ app.post(
             "⚠️ Тимчасовий ліміт API. Спробуй ще раз через 20–30 секунд."
 
         });
+
       }
 
 
@@ -2076,7 +2260,9 @@ app.post(
           err.message
 
       });
+
     }
+
   }
 );
 
@@ -2096,6 +2282,7 @@ app.get(
         "index.html"
       )
     );
+
   }
 );
 
@@ -2109,6 +2296,7 @@ app.get(
   (req, res) => {
 
     res.send("ok");
+
   }
 );
 
@@ -2131,9 +2319,11 @@ app.listen(
       PORT
     );
 
+
     console.log(
       "🤖 MODEL: " +
       MODEL
     );
+
   }
 );
