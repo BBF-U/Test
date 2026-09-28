@@ -1584,329 +1584,310 @@ async function callGemini(
   thinkingLevel = "low",
   maxRetries = 4
 ) {
-
-  if (
-    !process.env.GEMINI_API_KEY
-  ) {
-
-    throw new Error(
-      "GEMINI_API_KEY не знайдено"
-    );
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY не знайдений у .env");
   }
 
+  const url = `${GEMINI_URL}?key=${process.env.GEMINI_API_KEY}`;
 
-  for (
-    let attempt = 1;
-    attempt <= maxRetries;
-    attempt++
-  ) {
-
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [
+              {
+                text: SYSTEM_INSTRUCTION
+              }
+            ]
+          },
 
-      const response =
-        await fetch(
-          `${GEMINI_URL}?key=${process.env.GEMINI_API_KEY}`,
-          {
-
-            method: "POST",
-
-            headers: {
-              "Content-Type": "application/json"
-            },
-
-            body: JSON.stringify({
-
-              systemInstruction: {
-
-                parts: [
-                  {
-                    text:
-                      SYSTEM_INSTRUCTION
-                  }
-                ]
-
-              },
-
-
-              contents: [
-
+          contents: [
+            {
+              role: "user",
+              parts: [
                 {
-
-                  role: "user",
-
-                  parts: [
-                    {
-                      text: prompt
-                    }
-                  ]
-
+                  text: prompt
                 }
+              ]
+            }
+          ],
 
-              ],
+          generationConfig: {
+            maxOutputTokens: maxTokens,
+            responseMimeType: "application/json",
 
-
-              generationConfig: {
-
-                maxOutputTokens:
-                  maxTokens,
-
-                responseMimeType:
-                  "application/json",
-
-                responseSchema: {
-
-                  type: "OBJECT",
-
-                  properties: {
-
-                    paragraphs: {
-
-                      type: "ARRAY",
-
-                      description:
-                        "Масив готових логічних абзаців. Один елемент масиву — один окремий абзац.",
-
-                      items: {
-                        type: "STRING"
-                      }
-
-                    },
-
-                    themes_count: {
-
-                      type: "INTEGER",
-
-                      description:
-                        "Приблизна кількість основних тематичних блоків у джерелі."
-
-                    },
-
-                    numbers_verified: {
-
-                      type: "BOOLEAN",
-
-                      description:
-                        "true, якщо використані у результаті числа та інші числові факти відповідають джерелу."
-
-                    }
-
-                  },
-
-                  required: [
-                    "paragraphs",
-                    "themes_count",
-                    "numbers_verified"
-                  ]
-
+            responseSchema: {
+              type: "object",
+              properties: {
+                paragraphs: {
+                  type: "array",
+                  items: {
+                    type: "string"
+                  }
                 },
 
-                thinkingConfig: {
+                themes_count: {
+                  type: "integer"
+                },
 
-                  thinkingLevel:
-                    thinkingLevel
-
+                numbers_verified: {
+                  type: "boolean"
                 }
+              },
 
-              }
+              required: [
+                "paragraphs",
+                "themes_count",
+                "numbers_verified"
+              ]
+            },
 
-            })
-
+            thinkingConfig: {
+              thinkingLevel: thinkingLevel
+            }
           }
-        );
+        })
+      });
 
-
-      const data =
-        await response.json();
-
+      // Безпечне читання JSON.
+      // Якщо сервер повернув не JSON, не впадемо на response.json().
+      const data = await response.json().catch(() => ({}));
 
       console.log(
         `GEMINI STATUS: ${response.status} | ATTEMPT: ${attempt}/${maxRetries}`
       );
 
+      // ---------------------------------------------------------
+      // УСПІШНА ВІДПОВІДЬ
+      // ---------------------------------------------------------
 
-      if (
-        response.ok
-      ) {
-
+      if (response.ok) {
         const rawText =
-          data
-            ?.candidates?.[0]
-            ?.content?.parts?.[0]
-            ?.text;
-
+          data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
         if (!rawText) {
-
-          throw new Error(
-            "Порожня відповідь Gemini"
-          );
+          throw new Error("Порожня відповідь Gemini");
         }
-
 
         return rawText.trim();
       }
 
+      // ---------------------------------------------------------
+      // 429 — RATE LIMIT
+      // ---------------------------------------------------------
 
-      if (
-        response.status === 429 ||
-        response.status === 500 ||
-        response.status === 503
-      ) {
-
-        if (
-          attempt === maxRetries
-        ) {
-
-          throw new Error(
-            "RATE_LIMIT"
-          );
+      if (response.status === 429) {
+        if (attempt === maxRetries) {
+          const error = new Error("RATE_LIMIT");
+          error.code = "GEMINI_429";
+          throw error;
         }
-
 
         let retrySeconds = 10;
 
-
         try {
-
           const retry =
-            data
-              ?.error
-              ?.details
-              ?.find(
-                x =>
-                  x["@type"]
-                    ?.includes(
-                      "RetryInfo"
-                    )
-              )
-              ?.retryDelay;
+            data?.error?.details?.find(
+              x => x["@type"]?.includes("RetryInfo")
+            )?.retryDelay;
 
+          if (retry) {
+            const parsed = parseFloat(
+              String(retry).replace("s", "")
+            );
 
-          if (
-            retry
-          ) {
-
-            const parsed =
-              parseInt(
-                retry
-              );
-
-
-            if (
-              !Number.isNaN(
-                parsed
-              )
-            ) {
-
-              retrySeconds =
-                parsed;
+            if (!Number.isNaN(parsed) && parsed > 0) {
+              retrySeconds = Math.ceil(parsed);
             }
-
           } else {
-
-            retrySeconds =
-              Math.min(
-                10 *
-                  Math.pow(
-                    2,
-                    attempt - 1
-                  ),
-                40
-              );
-          }
-
-        } catch {
-
-          retrySeconds =
-            Math.min(
-              10 *
-                Math.pow(
-                  2,
-                  attempt - 1
-                ),
+            retrySeconds = Math.min(
+              10 * Math.pow(2, attempt - 1),
               40
             );
+          }
+        } catch {
+          retrySeconds = Math.min(
+            10 * Math.pow(2, attempt - 1),
+            40
+          );
         }
 
+        // Невеликий jitter, щоб повторні запити
+        // не йшли абсолютно одночасно.
+        const jitter = Math.random() * 2;
 
         console.log(
-          `Waiting ${retrySeconds}s before retry...`
+          `Gemini 429. Waiting ${retrySeconds + jitter.toFixed(1)}s before retry...`
         );
 
-
-        await new Promise(
-          resolve =>
-            setTimeout(
-              resolve,
-              retrySeconds * 1000
-            )
+        await new Promise(resolve =>
+          setTimeout(
+            resolve,
+            (retrySeconds + jitter) * 1000
+          )
         );
-
 
         continue;
       }
 
+      // ---------------------------------------------------------
+      // 503 — SERVER OVERLOADED / TEMPORARILY UNAVAILABLE
+      // ---------------------------------------------------------
 
-      throw new Error(
-        data
-          ?.error
-          ?.message ||
-        `Gemini API error (${response.status})`
-      );
+      if (response.status === 503) {
+        if (attempt === maxRetries) {
+          const error = new Error(
+            "Gemini тимчасово недоступний (503). Спробуй ще раз через кілька секунд."
+          );
 
+          error.code = "GEMINI_503";
+
+          throw error;
+        }
+
+        let retrySeconds;
+
+        try {
+          const retry =
+            data?.error?.details?.find(
+              x => x["@type"]?.includes("RetryInfo")
+            )?.retryDelay;
+
+          if (retry) {
+            const parsed = parseFloat(
+              String(retry).replace("s", "")
+            );
+
+            if (!Number.isNaN(parsed) && parsed > 0) {
+              retrySeconds = Math.ceil(parsed);
+            }
+          }
+        } catch {
+          // Використаємо exponential backoff нижче.
+        }
+
+        if (!retrySeconds) {
+          retrySeconds = Math.min(
+            3 * Math.pow(2, attempt - 1),
+            30
+          );
+        }
+
+        const jitter = Math.random() * 1.5;
+
+        console.log(
+          `Gemini 503. Waiting ${(retrySeconds + jitter).toFixed(1)}s before retry...`
+        );
+
+        await new Promise(resolve =>
+          setTimeout(
+            resolve,
+            (retrySeconds + jitter) * 1000
+          )
+        );
+
+        continue;
+      }
+
+      // ---------------------------------------------------------
+      // 500 / 502 / 504 — TEMPORARY SERVER ERROR
+      // ---------------------------------------------------------
+
+      if (
+        response.status === 500 ||
+        response.status === 502 ||
+        response.status === 504
+      ) {
+        if (attempt === maxRetries) {
+          const error = new Error(
+            `Gemini тимчасово недоступний (${response.status}).`
+          );
+
+          error.code = "GEMINI_SERVER_ERROR";
+
+          throw error;
+        }
+
+        const retrySeconds = Math.min(
+          3 * Math.pow(2, attempt - 1),
+          30
+        );
+
+        const jitter = Math.random() * 1.5;
+
+        console.log(
+          `Gemini ${response.status}. Waiting ${(retrySeconds + jitter).toFixed(1)}s before retry...`
+        );
+
+        await new Promise(resolve =>
+          setTimeout(
+            resolve,
+            (retrySeconds + jitter) * 1000
+          )
+        );
+
+        continue;
+      }
+
+      // ---------------------------------------------------------
+      // ІНШІ HTTP ПОМИЛКИ
+      // ---------------------------------------------------------
+
+      const apiMessage =
+        data?.error?.message ||
+        `Gemini API error (${response.status})`;
+
+      const error = new Error(apiMessage);
+      error.code = `GEMINI_${response.status}`;
+
+      throw error;
 
     } catch (err) {
 
+      // Якщо це вже контрольована помилка,
+      // яку ми навмисно викинули вище — не робимо
+      // додатковий непотрібний retry.
       if (
-        err.message ===
-        "RATE_LIMIT"
+        err.code === "GEMINI_429" ||
+        err.code === "GEMINI_503" ||
+        err.code === "GEMINI_SERVER_ERROR"
       ) {
-
         throw err;
       }
 
+      // Мережеві помилки / timeout / fetch errors.
+      if (attempt < maxRetries) {
+        const retrySeconds = Math.min(
+          3 * Math.pow(2, attempt - 1),
+          20
+        );
 
-      if (
-        attempt < maxRetries
-      ) {
-
-        const retrySeconds =
-          Math.min(
-            5 *
-              Math.pow(
-                2,
-                attempt - 1
-              ),
-            30
-          );
-
+        const jitter = Math.random() * 1.5;
 
         console.log(
-          `API/network error. Retry in ${retrySeconds}s...`
+          `API/network error. Retry in ${(retrySeconds + jitter).toFixed(1)}s...`
         );
 
-
-        await new Promise(
-          resolve =>
-            setTimeout(
-              resolve,
-              retrySeconds * 1000
-            )
+        await new Promise(resolve =>
+          setTimeout(
+            resolve,
+            (retrySeconds + jitter) * 1000
+          )
         );
-
 
         continue;
       }
-
 
       throw err;
     }
   }
 
-
-  throw new Error(
-    "RATE_LIMIT"
-  );
+  throw new Error("Gemini API: maximum retry attempts reached");
 }
 
 
