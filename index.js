@@ -2515,7 +2515,7 @@ app.post(
       );
 
 
-      if (
+       if (
         err.message ===
         "RATE_LIMIT"
       ) {
@@ -2528,6 +2528,28 @@ app.post(
         });
       }
 
+
+      /*
+        Gemini 503 / temporary server error
+      */
+
+      if (
+        err.code === "GEMINI_503" ||
+        err.code === "GEMINI_SERVER_ERROR"
+      ) {
+
+        return res.json({
+
+          result:
+            "⚠️ Gemini тимчасово недоступний. Спробуй ще раз через 20–30 секунд."
+
+        });
+      }
+
+
+      /*
+        Other errors
+      */
 
       return res.json({
 
