@@ -2058,12 +2058,30 @@ async function generateValidatedSummary(
         );
 
 
-    } catch (err) {
+        } catch (err) {
 
+      // 429 — справжній rate limit
       if (
         err.message ===
         "RATE_LIMIT"
       ) {
+
+        throw err;
+      }
+
+
+      // 503 / 500 / 502 / 504 —
+      // тимчасова проблема Gemini.
+      // Не запускаємо другий SUMMARY GENERATION.
+      if (
+        err.code === "GEMINI_503" ||
+        err.code === "GEMINI_SERVER_ERROR"
+      ) {
+
+        console.error(
+          "GENERATION TEMPORARY ERROR:",
+          err.message
+        );
 
         throw err;
       }
