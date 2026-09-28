@@ -10,7 +10,7 @@ app.use(express.static("public"));
    CONFIG
 ========================================================= */
 
-const MODEL = "gemini-3.5-flash-lite";
+const MODEL = "gemini-3.1-flash-lite";
 
 const GEMINI_URL =
   `https://generativelanguage.googleapis.com/v1/models/${MODEL}:generateContent`;
